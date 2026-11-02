@@ -1,0 +1,170 @@
+====================================================================================================
+CHECKPHISH SOC SYSTEM DOCUMENTATION: MODELS, TECHNIQUES, AND ISSUES FACED
+Modules Covered: URL Scanner, Email Scanner, and Typosquatting / Domain Impersonation Monitor
+Project Lead: Sugumaran S | System Version: 4.0.0-generalized-calibrated
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+1. URL SCANNER (WEB LINK & CONTENT ANALYSIS)
+----------------------------------------------------------------------------------------------------
+
+A. MODELS & ALGORITHMS USED:
+-----------------------------
+1. Decoupled XGBoost URL-Structural Classifier (v3.2.0):
+   - Fast gradient boosted decision trees trained on GPU (NVIDIA CUDA / RTX 3050).
+   - Operates on 19 structural and lexical features extracted strictly from the URL string.
+   - Test Performance (Unseen Out-of-Domain): 97.75% Accuracy, 93.71% Precision, 88.25% Recall, 99.19% ROC-AUC.
+2. Decoupled XGBoost HTML-Content Classifier (v3.2.0):
+   - Gradient boosted trees trained on 10 structural DOM/HTML features extracted from live webpage source.
+   - Test Performance (Unseen Out-of-Domain): 98.81% Accuracy, 81.77% Precision, 93.44% Recall, 99.55% ROC-AUC.
+3. Probability Calibration Model:
+   - Scikit-Learn CalibratedClassifierCV (Sigmoid / Platt Scaling) applied post-training to prevent overconfidence (Brier Score: 0.0188).
+4. Principled Log-Odds Evidence Fusion Layer:
+   - Combines independent probabilities via logit transforms:
+     logit(P_fused) = (logit_URL * 0.55) + (logit_HTML * 0.45) + Network_Evidence_Shifts
+   - Paired Multi-Modal Fusion Performance: 99.28% Accuracy, 99.44% Precision, 99.99% ROC-AUC.
+5. Tree SHAP (SHapley Additive exPlanations) Engine:
+   - Uses XGBoost internal `pred_contribs` to compute exact feature-level attribution and explain why a link is safe or malicious.
+
+B. TECHNIQUES FOLLOWED:
+------------------------
+1. Decoupled Multi-Modal Architecture:
+   - Separated URL lexical feature extraction (no network dependency) from HTML scraping.
+   - Prevents scraping failures from crashing or biasing the classification.
+2. 19 URL Structural & Lexical Features:
+   - URLLength, DomainLength, NoOfSubDomain, NoOfQMarkInURL, NoOfAmpersandInURL, IsHTTPS, PathLength, PathDepth, HasQuery, DigitCount, DigitRatio, HyphenCount, DotCount, HasAtSymbol, DoubleSlashInPath, HostnameHasHyphen, HostnameHasDigit, IsIPAddress, PathHasSuspiciousKeyword.
+3. 10 HTML Structural DOM Features:
+   - LineOfCode, NoOfCSS, NoOfJS, NoOfImage, NoOfSelfRef, NoOfExternalRef, NoOfiFrame, HasPasswordField, HasTitle, ExternalRefRatio.
+4. Leakage-Free Domain-Grouped Partitioning:
+   - Split dataset by domain groups (Train ∩ Test Domains = ∅) across 737,670 instances (PhiUSIIL dataset) to guarantee out-of-domain generalization.
+5. Synthetic Legitimate Path Augmentation:
+   - Injected realistic legitimate deep paths (profiles `/in/user123`, docs `/docs/v2/guides`, portals, dated blogs) to prevent path length bias.
+6. Live Reconnaissance & Telemetry:
+   - Python `socket` DNS resolution, WHOIS registration age calculation, transport encryption validation, and cloudscraper anti-bot bypass.
+7. Neutral Logit Fallback:
+   - When web scraping is blocked (e.g., Cloudflare 403, LinkedIn 999, SPAs), the engine treats HTML evidence as neutral (UNKNOWN) and cleanly falls back to the URL structural model without penalty.
+
+C. ISSUES FACED & HOW THEY WERE RESOLVED:
+------------------------------------------
+1. Path & Numeric ID False Positive Bias:
+   - Issue: Legitimate subpages with long paths or alphanumeric IDs (e.g., LeetCode problem links, LinkedIn profiles) were falsely flagged as phishing.
+   - Root Cause: Training data had legitimate samples dominated by root domains (e.g. `google.com`), while phishing samples contained long URLs.
+   - Solution: Systematic synthetic augmentation of legitimate domains with realistic path structures, eliminating false positive bias.
+2. Scraper Shielding Penalties (HTTP 999 / 403 / JavaScript SPAs):
+   - Issue: When modern single-page apps (Rockstar Games, Cloudflare) blocked web scraping, legacy systems populated HTML features with zeros, triggering false phishing alerts.
+   - Solution: Decoupled architecture where scraping failure drops the HTML branch and defaults to pure URL structural evaluation with zero penalty.
+3. Domain Leakage in ML Evaluation:
+   - Issue: Standard random k-fold splits placed subdomains of the same parent domain in both train and test sets, inflating accuracy metrics.
+   - Solution: Applied GroupShuffleSplit based on apex domain names.
+4. Overconfident Probability Predictions:
+   - Issue: Raw tree boosting scores pushed probabilities to extreme 0% or 100% without true statistical reliability.
+   - Solution: Fitted Sigmoid probability calibration on an independent validation split.
+
+
+----------------------------------------------------------------------------------------------------
+2. EMAIL SCANNER (CONTENT, HEADER, & SENDER ANALYSIS)
+----------------------------------------------------------------------------------------------------
+
+A. MODELS & ALGORITHMS USED:
+-----------------------------
+1. TF-IDF + Regularized L2 Logistic Regression Email Classifier:
+   - Sublinear term frequency scaling, word n-gram extraction (1-2 ngrams), max_features=15,000.
+2. Isotonic Regression Probability Calibrator:
+   - Post-hoc non-parametric calibration achieving an Expected Calibration Error (ECE) of 0.0000 on calibration and 0.0028 on unseen test data.
+   - Final Email Model Metrics (17,709 Unseen Test Emails): 98.44% Accuracy, 98.63% Precision, 98.15% Recall, 99.87% ROC-AUC, 0.0115 Brier Score.
+3. Multi-Modal Email Evidence Fusion Engine:
+   - Combines Email Text ML probability, Sender Structural Evidence, Authentication Header Verification, and Embedded URL Threat Scores into a unified log-odds threat calculation.
+
+B. TECHNIQUES FOLLOWED:
+------------------------
+1. Multi-Corpora Balanced Integration & Deduplication:
+   - Merged 8 independent corpora: CEAS_08, Enron, Ling Spam, Nazario, Nigerian Fraud, SpamAssassin, Synthetic Security Notices, and Augmented Robustness Corpus.
+   - 93,546 raw emails deduplicated down to 87,953 clean emails (48.5% Phishing / 51.5% Legitimate).
+   - 3-Way Partitioning: 70% Train (61,478), 10% Calibration (8,766), 20% Unseen Test (17,709).
+2. Structural Sender Verification:
+   - Punycode / IDN internationalized domain detection (`xn--`).
+   - Raw IP address sender host detection.
+   - Excessive subdomain hierarchy depth detection (>4 levels).
+   - Display name spoofing analysis (mismatch between display name brand and actual domain).
+3. Tri-State Header Authentication Logic:
+   - Parses raw email headers for SPF, DKIM, and DMARC authentication verdicts.
+   - Handles missing headers as neutral `UNKNOWN` (shift = 0.0) rather than failing the scan.
+4. Recursive URL Shortener Resolver:
+   - Extracts all links in email text; identifies shorteners (`bit.ly`, `tinyurl.com`, `t.co`, etc.).
+   - Recursively resolves HTTP/HTTPS redirection hops to uncover hidden destination domains.
+   - Automatically feeds resolved destinations into the Decoupled URL Scanner.
+
+C. ISSUES FACED & HOW THEY WERE RESOLVED:
+------------------------------------------
+1. False Positives on Short Benign Conversational Emails:
+   - Issue: A simple greeting like "hi how are you" from `sug@gmail.com` was classified as 88.95% Phishing.
+   - Root Cause: Legacy training corpora (CEAS_08, SpamAssassin) had conversational pronouns (`you`, `how are`) heavily concentrated in spam, while legitimate corpora (Enron) consisted only of corporate memos.
+   - Solution: Built `augmented_robustness_corpus.csv` containing conversational emails, order receipts, newsletters, and shipping updates in class 0. Re-trained with Isotonic calibration, dropping false positive score from 88.95% to 0.9% (SAFE).
+2. Reliance on Hardcoded Whitelists & Brand Overrides:
+   - Issue: Legacy code used `CORE_BRANDS` lists and imposed arbitrary +35 point penalties if a domain was unrecognized.
+   - Solution: Fully eliminated brand whitelists and artificial score floors (`base_score = 10.0`), migrating to purely generalized structural and statistical evidence.
+3. Obfuscated Link Hiding in Email Bodies:
+   - Issue: Attackers bypass email filters using legitimate URL shorteners (e.g., bit.ly) redirecting to credential stealers.
+   - Solution: Built a safe HTTP session resolver with redirect depth limits and User-Agent spoofing to reveal the underlying destination.
+
+
+----------------------------------------------------------------------------------------------------
+3. TYPOSQUATTING & DOMAIN IMPERSONATION MONITOR
+----------------------------------------------------------------------------------------------------
+
+A. MODELS & ALGORITHMS USED:
+-----------------------------
+1. String Similarity & Distance Metrics:
+   - Gestalt Pattern Matching via Python `difflib.SequenceMatcher` and character edit distance ratios.
+2. Homoglyph & Visual Substitution Rules:
+   - Algorithmic substitution matrices:
+     - `o` -> `0` (Zero Character Substitution)
+     - `l` -> `1` / `i` -> `1` (Number 1 Substitution)
+     - `e` -> `3` (Number 3 Substitution)
+     - `a` -> `4` (Number 4 Substitution)
+     - `s` -> `5` (Number 5 Substitution)
+3. Prefix & Suffix Attack Permutation Engine:
+   - Generates targeted attack permutations: `login-[brand]`, `[brand]-security`, `[brand]-verify`, `[brand]-update`, `app-[brand]`, `[brand]s`.
+4. High-Abuse TLD Permutation Generator:
+   - Proactively evaluates lookalikes on high-risk TLDs: `.xyz`, `.top`, `.online`, `.vip`, `.site`.
+5. Automated SOC Takedown Notice Generator:
+   - Formats formal, RFC-compliant abuse reports containing timestamp, evidence, target URL, and registrant violation details.
+
+B. TECHNIQUES FOLLOWED:
+------------------------
+1. Multi-Tier Risk Classification:
+   - Threat Score >= 80% or Authentication Keyword match -> CRITICAL THREAT (Score: 92.5%)
+   - Similarity 65% to 79% -> HIGH RISK (Score: 78.0%)
+   - Similarity < 65% -> MONITORED (Score: 45.0%)
+2. Hybrid Live Status Checking:
+   - Uses local DNS resolution (`socket.gethostbyname`) to verify whether generated typo variants are actively resolvable on the public internet.
+   - Cross-checks with python-whois for registration status.
+3. Automated Abuse Takedown Workflow:
+   - One-click takedown notice generation from the SOC dashboard for rapid submission to registrars and hosting providers.
+
+C. ISSUES FACED & HOW THEY WERE RESOLVED:
+------------------------------------------
+1. Combinatorial Explosion & Latency:
+   - Issue: Generating all theoretical character permutations of a brand name resulted in thousands of combinations, causing UI timeouts.
+   - Solution: Constrained generation to high-probability real-world attack vectors (top visual homoglyphs, auth prefixes/suffixes, and high-abuse TLDs).
+2. Short Brand Name False Positives:
+   - Issue: Short 2-3 character domain names produced misleadingly high similarity ratios against unrelated benign words.
+   - Solution: Weighted similarity calculations alongside credential/security keywords and domain length normalizers.
+3. WHOIS Rate Limiting & Privacy Redaction:
+   - Issue: Querying WHOIS servers for dozens of generated typo domains simultaneously triggered rate limits and IP blocks.
+   - Solution: Implemented fast non-intrusive DNS socket lookups first to filter out unallocated domains before initiating WHOIS queries.
+
+
+====================================================================================================
+SUMMARY ARCHITECTURE MATRIX
+====================================================================================================
++--------------------+--------------------------------+----------------------------+-----------------------------+
+| Component          | Core Model / Algorithm         | Primary Dataset / Inputs   | Key Performance Metric      |
++--------------------+--------------------------------+----------------------------+-----------------------------+
+| URL Scanner        | Decoupled XGBoost (GPU CUDA)   | PhiUSIIL (737k instances)  | 99.28% Accuracy, 99.99% AUC |
+| HTML Scanner       | Decoupled XGBoost (GPU CUDA)   | PhiUSIIL DOM Features      | 98.81% Accuracy, 99.55% AUC |
+| Email Classifier   | TF-IDF + Logistic + Isotonic   | 8-Corpora (87,953 emails)  | 98.44% Accuracy, 99.87% AUC |
+| Typosquatting      | SequenceMatcher + Homoglyphs   | Real-time Permutations     | Sub-millisecond generation  |
+| Fusion Engine      | Principled Log-Odds Likelihood | Multi-Modal Evidence       | 0.0046 Brier Score Loss     |
++--------------------+--------------------------------+----------------------------+-----------------------------+
+====================================================================================================

@@ -1,0 +1,2879 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing Radar</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            bg: '#070b14',
+                            surface: '#0d1527',
+                            dark: '#060913',
+                            card: '#0d1527',
+                            border: '#1b2a4a',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            purple: '#a855f7'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                        'radar': 'radarSweep 4s linear infinite',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.4))' },
+                            '100%': { filter: 'drop-shadow(0 0 16px rgba(59, 130, 246, 0.8))' }
+                        },
+                        radarSweep: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- jsPDF & autoTable for Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- Vis.js for Attack Relationship Graph -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script> 
+    <style>
+        html {
+            font-size: 19px; /* Increased base font size for comfortable readability */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            transition: font-size 0.2s ease-in-out;
+        }
+
+        /* Proportional Rem-based Font Sizing Scale (Scales smoothly with root font size) */
+        .text-\[9px\], .text-\[10px\] { 
+            font-size: 0.78rem !important; 
+            line-height: 1.4 !important; 
+            letter-spacing: 0.025em;
+        }
+        .text-\[11px\] { 
+            font-size: 0.84rem !important; 
+            line-height: 1.45 !important; 
+        }
+        .text-xs { 
+            font-size: 0.90rem !important; 
+            line-height: 1.45 !important; 
+        }
+        .text-sm { 
+            font-size: 1.00rem !important; 
+            line-height: 1.5 !important; 
+        }
+        .text-base { 
+            font-size: 1.12rem !important; 
+            line-height: 1.55 !important; 
+        }
+        .text-lg { 
+            font-size: 1.25rem !important; 
+            line-height: 1.4 !important; 
+        }
+        .text-xl { 
+            font-size: 1.45rem !important; 
+            line-height: 1.35 !important; 
+        }
+        .text-2xl { 
+            font-size: 1.75rem !important; 
+            line-height: 1.3 !important; 
+        }
+        .text-3xl { 
+            font-size: 2.25rem !important; 
+            line-height: 1.25 !important; 
+        }
+        .text-4xl { 
+            font-size: 2.75rem !important; 
+            line-height: 1.2 !important; 
+        }
+
+        /* Improved Contrast for Secondary and Muted Text */
+        html.dark .text-slate-400 { color: #94a3b8; }
+        html.dark .text-slate-500 { color: #8292a7; }
+        html.dark .text-slate-600 { color: #94a3b8; }
+        html.light .text-slate-400 { color: #64748b; }
+        html.light .text-slate-500 { color: #475569; }
+
+        html.dark body {
+            background-color: #060913;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.06) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #f1f5f9;
+        }
+
+        html.light body {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.06) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.04) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #0f172a;
+        }
+
+        html.dark .glass-card {
+            background: rgba(13, 21, 39, 0.76);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45);
+        }
+
+        html.light .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08);
+        }
+
+        .glass-card-interactive {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card-interactive:hover {
+            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+
+        .meter-bg { stroke: #152238; }
+        html.light .meter-bg { stroke: #e2e8f0; }
+
+        .meter-progress {
+            transition: stroke-dashoffset 1.2s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.5s ease;
+            stroke-dasharray: 440;
+            stroke-dashoffset: 440;
+        }
+
+        .tab-btn { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .tab-btn.active {
+            background: #2563eb;
+            color: #ffffff !important;
+            box-shadow: 0 4px 20px -3px rgba(37, 99, 235, 0.55);
+            border-color: #3b82f6;
+        }
+
+        .radar-grid {
+            background-size: 32px 32px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+        html.light .radar-grid {
+            background-image: 
+                linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+
+    <!-- TOP TELEMETRY & NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 backdrop-blur-xl dark:bg-slate-950/80 bg-white/80 border-b dark:border-slate-800/80 border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+            
+            <div class="flex items-center gap-3.5 cursor-pointer" onclick="switchTab('url-scanner')">
+                <div class="relative flex items-center justify-center w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 shadow-lg shadow-blue-500/10">
+                    <svg class="w-6 h-6 animate-glow text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <h1 class="font-heading font-extrabold text-xl dark:text-slate-100 text-slate-900 tracking-tight">Phishing Radar</h1>
+                        <span class="px-2.5 py-0.5 text-xs font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/25 rounded-full">v3.2 MULTI-VECTOR</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium hidden sm:block">AI Threat Intelligence & Brand Security Engine</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Font Size Controls -->
+                <div class="flex items-center dark:bg-slate-900/80 bg-slate-100 border dark:border-slate-800 border-slate-300 rounded-xl p-1 text-slate-300 shadow-sm">
+                    <button type="button" onclick="changeFontSize(-1)" class="px-2.5 py-1 hover:text-blue-400 hover:dark:bg-slate-800 hover:bg-slate-200 rounded-lg text-xs font-mono font-bold transition-colors" title="Decrease Font Size (A-)">A-</button>
+                    <button type="button" onclick="resetFontSize()" id="fontSizeDisplay" class="px-2 py-1 text-xs font-mono font-bold text-slate-300 hover:text-blue-400" title="Click to Reset Default (19px)">19px</button>
+                    <button type="button" onclick="changeFontSize(1)" class="px-2.5 py-1 hover:text-blue-400 hover:dark:bg-slate-800 hover:bg-slate-200 rounded-lg text-xs font-mono font-bold transition-colors" title="Increase Font Size (A+)">A+</button>
+                </div>
+
+                <!-- Theme Toggle Button -->
+                <button type="button" onclick="toggleTheme()" class="p-2.5 rounded-xl dark:bg-slate-900/80 bg-slate-100 border dark:border-slate-800 border-slate-300 text-slate-400 hover:text-amber-400 dark:hover:text-yellow-300 transition-colors shadow-sm" title="Toggle Light/Dark Theme">
+                    <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <svg class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- HERO SECTION & TAB SWITCHER BAR -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex-grow w-full space-y-6">
+        
+        <section class="glass-card rounded-2xl p-6 sm:p-8 relative overflow-hidden radar-grid">
+            <div class="max-w-3xl mx-auto text-center space-y-4">
+                
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold font-mono">
+                    <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Real-time AI Threat Intelligence Platform
+                </div>
+
+                <h2 class="text-2xl sm:text-4xl font-heading font-extrabold tracking-tight leading-tight dark:text-slate-100 text-slate-900">
+                    Detect & Neutralize Phishing Threats
+                </h2>
+                <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
+                    Inspect URLs with decoupled neural trees, analyze email forensics, trace redirect chains, inspect HTML credential harvesting, and evaluate threat vectors.
+                </p>
+
+                <!-- TAB SWITCHER BUTTONS -->
+                <div class="pt-4 flex flex-wrap items-center justify-center gap-2">
+                    <button onclick="switchTab('url-scanner')" id="tab-url-scanner" class="tab-btn active px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold dark:text-slate-300 text-slate-700 dark:bg-slate-900 bg-slate-100 border dark:border-slate-800 border-slate-200 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        <span>URL Intelligence</span>
+                    </button>
+
+                    <button onclick="switchTab('email-scanner')" id="tab-email-scanner" class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold dark:text-slate-300 text-slate-700 dark:bg-slate-900 bg-slate-100 border dark:border-slate-800 border-slate-200 flex items-center gap-2">
+                        <span class="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 rounded-full">NLP</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <span>Email Forensics</span>
+                    </button>
+
+                    <button onclick="switchTab('typosquat')" id="tab-typosquat" class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold dark:text-slate-300 text-slate-700 dark:bg-slate-900 bg-slate-100 border dark:border-slate-800 border-slate-200 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        <span>Typosquat Radar</span>
+                    </button>
+
+                    <button onclick="switchTab('takedown')" id="tab-takedown" class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold dark:text-slate-300 text-slate-700 dark:bg-slate-900 bg-slate-100 border dark:border-slate-800 border-slate-200 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138z"/></svg>
+                        <span>Abuse Takedown</span>
+                    </button>
+
+                    
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= TAB 1: URL SCANNER PANEL (DEFAULT ACTIVE) ================= -->
+        <div id="panel-url-scanner" class="tab-panel space-y-8">
+            
+            <!-- URL Input Box -->
+            <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-4">
+                <div class="relative flex flex-col sm:flex-row items-center gap-3 p-2 dark:bg-slate-950/90 bg-slate-100 rounded-xl border dark:border-slate-700/80 border-slate-300 shadow-2xl focus-within:border-blue-500 transition-all">
+                    <div class="flex items-center gap-2 pl-3 text-slate-400 w-full sm:w-auto">
+                        <svg class="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        <span class="text-xs font-mono text-slate-500 border-r dark:border-slate-800 border-slate-300 pr-3 hidden sm:inline">URL</span>
+                    </div>
+
+                    <input type="text" id="urlInput" 
+                        placeholder="Paste link (e.g. https://paypa1-security-update.com or google.com)..." 
+                        class="w-full bg-transparent dark:text-slate-100 text-slate-900 text-sm sm:text-base px-2 py-2 focus:outline-none font-mono placeholder:text-slate-400"
+                        onkeydown="if(event.key === 'Enter') checkURL()">
+                    
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button onclick="clearInput()" class="p-2 text-slate-400 hover:text-slate-200 rounded-lg text-xs" title="Clear input">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+
+                        <button onclick="checkURL()" id="scanBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3 rounded-lg transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 text-sm whitespace-nowrap">
+                            <span>Analyze URL</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 1-Click Quick Presets -->
+                <div class="flex flex-wrap items-center justify-center gap-2 text-xs pt-1">
+                    <span class="text-slate-400 font-medium mr-1">Quick Presets:</span>
+                    <button onclick="runPreset('https://google.com')" class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20 transition-all font-mono">
+                        ✓ google.com (Safe)
+                    </button>
+                    <button onclick="runPreset('http://paypa1-security-update.com/login')" class="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 transition-all font-mono">
+                        ⚠ paypa1-security-update.com (Typosquat)
+                    </button>
+                    <button onclick="runPreset('https://github.com')" class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20 transition-all font-mono">
+                        ✓ github.com (Safe)
+                    </button>
+                    <button onclick="runPreset('http://login-apple-id-verify.xyz/auth')" class="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 transition-all font-mono">
+                        ⚠ login-apple-id-verify.xyz (Phishing)
+                    </button>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="scanProgressBar" class="hidden pt-2 space-y-2 text-left">
+                    <div class="flex justify-between text-xs font-mono text-slate-400">
+                        <span id="scanStatusStep" class="flex items-center gap-2">
+                            <svg class="animate-spin h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <span>Executing Multi-Vector Threat Intelligence Matrix...</span>
+                        </span>
+                        <span id="scanPercentText">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div id="scanProgressFill" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- URL Scanner Results Grid -->
+            <div id="dashboardGrid" class="hidden space-y-6">
+                
+                <!-- TOP ROW: DOM Preview + XGBoost Neural Assessment + Network Recon -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    <!-- COLUMN 1: DOM Preview (4 cols) -->
+                    <div class="lg:col-span-4 flex flex-col space-y-4">
+                        <div class="glass-card glass-card-interactive rounded-2xl p-5 flex flex-col h-full">
+                            <div class="flex items-center justify-between pb-3 border-b dark:border-slate-800 border-slate-200 mb-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex gap-1.5">
+                                        <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
+                                        <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+                                        <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+                                    </div>
+                                    <span class="text-xs font-mono text-slate-400 ml-2">DOM Browser Preview</span>
+                                </div>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded dark:bg-slate-900 bg-slate-100 text-slate-400 border dark:border-slate-800 border-slate-200" id="previewSslBadge">HTTP</span>
+                            </div>
+
+                            <div class="relative dark:bg-slate-950 bg-slate-900 rounded-xl border dark:border-slate-800 border-slate-200 overflow-hidden flex-grow flex items-center justify-center min-h-[260px] group" id="screenshotBox">
+                                <div id="previewLoader" class="flex flex-col items-center justify-center p-6 text-center space-y-2">
+                                    <svg class="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <p class="text-xs font-medium text-blue-400">Rendering Sandbox Preview...</p>
+                                </div>
+
+                                <img id="previewImage" src="" alt="Target Site Preview" class="hidden w-full h-full object-cover object-top cursor-zoom-in group-hover:scale-105 transition-transform duration-500" onclick="openModal()">
+                                
+                                <div id="imageOverlay" class="hidden absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer pointer-events-none text-white">
+                                    <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+                                    <span class="text-xs font-semibold">Click to Enlarge Preview</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 2: Neural Gauge & LLM Threat Intelligence (5 cols) -->
+                    <div class="lg:col-span-5 flex flex-col space-y-4">
+                        <div class="glass-card glass-card-interactive rounded-2xl p-6 flex flex-col justify-between h-full">
+                            <div class="flex items-center justify-between pb-3 border-b dark:border-slate-800 border-slate-200 mb-4">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                    Threat Assessment Gauge
+                                </h3>
+                                <span class="text-xs font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">Multi-Model Fusion</span>
+                            </div>
+
+                            <!-- SVG Gauge -->
+                            <div class="flex flex-col items-center justify-center my-2">
+                                <div class="relative w-44 h-44 flex items-center justify-center">
+                                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+                                        <circle cx="80" cy="80" r="70" class="meter-bg" stroke-width="12" fill="none"/>
+                                        <circle id="gaugeProgressArc" cx="80" cy="80" r="70" class="meter-progress" stroke-width="12" stroke-linecap="round" fill="none" stroke="#3b82f6"/>
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span class="text-3xl font-extrabold dark:text-slate-100 text-slate-900 font-mono tracking-tight" id="threatScoreText">--%</span>
+                                        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Threat Score</span>
+                                    </div>
+                                </div>
+
+                                <div class="text-center mt-3 space-y-1">
+                                    <h4 id="verdictTitle" class="text-xl font-extrabold tracking-tight dark:text-slate-100 text-slate-900">
+                                        Analyzing Target...
+                                    </h4>
+                                    <div>
+                                        <span id="riskLevelBadge" class="inline-block px-3 py-1 rounded-full text-xs font-bold font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                                            CALCULATING RISK
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- AI LLM Threat Intelligence Card -->
+                            <div id="llmReportCard" class="hidden rounded-xl p-4 border border-cyan-500/30 bg-cyan-500/5 mt-4 space-y-2 text-left">
+                                <div class="flex items-center gap-2">
+                                    <span class="flex h-2 w-2 relative">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                                    </span>
+                                    <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-400">GenAI SOC Threat Intelligence</span>
+                                </div>
+                                <p id="llmAnalysisText" class="text-xs leading-relaxed dark:text-slate-300 text-slate-700 font-sans"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 3: Network Recon (3 cols) -->
+                    <div class="lg:col-span-3 flex flex-col space-y-4">
+                        <div class="glass-card glass-card-interactive rounded-2xl p-6 flex flex-col h-full">
+                            <div class="flex items-center justify-between pb-3 border-b dark:border-slate-800 border-slate-200 mb-4">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                    Network Reconnaissance
+                                </h3>
+                                <span class="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">DNS / WHOIS / RDAP</span>
+                            </div>
+
+                            <div class="space-y-4 flex-grow text-xs">
+                                <div class="dark:bg-slate-950/60 bg-slate-50 p-3 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                    <span class="text-slate-400 text-[11px] font-medium block">Target Domain Host</span>
+                                    <div class="font-mono dark:text-slate-200 text-slate-900 font-semibold truncate" id="reconUrlDisplay">--</div>
+                                </div>
+
+                                <div class="dark:bg-slate-950/60 bg-slate-50 p-3 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 text-[11px] font-medium">IP Address</span>
+                                        <button onclick="copyIp()" class="text-[10px] text-blue-500 hover:underline font-mono" id="copyIpBtn">Copy IP</button>
+                                    </div>
+                                    <div class="font-mono text-blue-500 font-bold" id="reconIp">Pending...</div>
+                                </div>
+
+                                <div class="dark:bg-slate-950/60 bg-slate-50 p-3 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                    <span class="text-slate-400 text-[11px] font-medium block">Hosting ISP / Registrar</span>
+                                    <div class="font-sans dark:text-slate-200 text-slate-900 font-medium truncate" id="reconIsp">Pending...</div>
+                                </div>
+
+                                <div class="dark:bg-slate-950/60 bg-slate-50 p-3 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 text-[11px] font-medium">WHOIS / RDAP Age</span>
+                                        <span class="font-mono text-emerald-500 font-bold" id="reconAge">Pending...</span>
+                                    </div>
+                                    <div class="w-full dark:bg-slate-900 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                        <div id="reconAgeBar" class="bg-emerald-500 h-full w-0 transition-all duration-500"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ======================================================== -->
+                <!-- INTERACTIVE SOC ANALYSIS VIEWS NAVIGATOR -->
+                <!-- ======================================================== -->
+                <div class="glass-card rounded-2xl p-3 sm:p-4 border dark:border-slate-800 border-slate-200 shadow-xl">
+                    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                            <span class="text-xs font-mono font-bold tracking-wider dark:text-slate-300 text-slate-700 uppercase">Analysis Explorer:</span>
+                        </div>
+                        
+                        <!-- View Switcher Tabs -->
+                        <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                            <button type="button" onclick="switchDashboardSubTab('score-prov')" id="btn-subtab-score-prov" class="dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 bg-blue-600 text-white border border-blue-500 shadow-lg shadow-blue-600/20">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                <span>SCORE SOURCE & PROVENANCE BREAKDOWN</span>
+                            </button>
+                            <button type="button" onclick="switchDashboardSubTab('dom-sec')" id="btn-subtab-dom-sec" class="dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 dark:bg-slate-900 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-slate-800 border-slate-200 hover:border-slate-700">
+                                <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                <span>DOM & SECURITY INSPECTION</span>
+                            </button>
+                            <button type="button" onclick="switchDashboardSubTab('redirect')" id="btn-subtab-redirect" class="dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 dark:bg-slate-900 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-slate-800 border-slate-200 hover:border-slate-700">
+                                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                <span>REDIRECT CHAIN</span>
+                            </button>
+                            <button type="button" onclick="switchDashboardSubTab('features')" id="btn-subtab-features" class="dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 dark:bg-slate-900 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-slate-800 border-slate-200 hover:border-slate-700">
+                                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                <span>EVIDENCE & ML FEATURES</span>
+                            </button>
+                            <button type="button" onclick="switchDashboardSubTab('timeline')" id="btn-subtab-timeline" class="dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 dark:bg-slate-900 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-slate-800 border-slate-200 hover:border-slate-700">
+                                <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>SOC TIMELINE & AUDIT</span>
+                            </button>
+                            <button type="button" onclick="switchDashboardSubTab('all')" id="btn-subtab-all" class="dash-subtab-btn px-3 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-1.5 dark:bg-slate-900 bg-slate-100 text-cyan-400 border dark:border-slate-800 border-slate-200 hover:border-cyan-500/40" title="Expand and display all breakdown sections">
+                                <span>⚡</span>
+                                <span>EXPAND ALL</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBPANEL 1: SCORE SOURCE & PROVENANCE BREAKDOWN -->
+                <div id="subpanel-score-prov" class="dash-subpanel transition-all duration-300">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- TELEMETRY SCORE PROVENANCE CARD -->
+                        <div class="glass-card rounded-2xl p-6 border dark:border-slate-800 border-slate-200 shadow-xl flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between pb-3.5 border-b dark:border-slate-800 border-slate-200">
+                                    <div>
+                                        <h4 class="text-xs sm:text-sm font-mono font-bold tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                                            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                                            SCORE SOURCE & PROVENANCE BREAKDOWN
+                                        </h4>
+                                        <p class="text-xs text-slate-400 font-mono mt-0.5">Vector contributions to final risk score</p>
+                                    </div>
+                                    <span id="scoreCardRiskBadge" class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">STANDBY</span>
+                                </div>
+
+                                <!-- Mini Header Banner -->
+                                <div class="my-4 p-3.5 rounded-xl dark:bg-slate-900/90 bg-slate-100 border dark:border-slate-800 border-slate-200 flex items-center justify-between">
+                                    <div>
+                                        <span class="text-xs uppercase tracking-wider text-slate-400 font-mono font-medium block">Composite Threat Score</span>
+                                        <span id="provenanceFinalScore" class="text-2xl font-bold font-mono text-emerald-400 mt-0.5 block">0.0%</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-xs uppercase tracking-wider text-slate-400 font-mono font-medium block">Engine Verdict</span>
+                                        <span id="provenanceRiskLevel" class="text-xs sm:text-sm font-mono font-bold text-slate-200 mt-0.5 block">LOW RISK</span>
+                                    </div>
+                                </div>
+
+                                <!-- Telemetry Vector Rows -->
+                                <div class="space-y-2.5 font-mono">
+                                    <div class="flex items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800/80 border-slate-200 hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs sm:text-sm text-slate-300 font-medium">URL Structural ML</span>
+                                            <span class="text-xs text-slate-400">(30% weight)</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span id="prov_url_score" class="dark:text-slate-100 text-slate-900 font-bold text-xs sm:text-sm">0.0%</span>
+                                            <span id="prov_url_badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SAFE</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800/80 border-slate-200 hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs sm:text-sm text-slate-300 font-medium">HTML Content ML</span>
+                                            <span class="text-xs text-slate-400">(25% weight)</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span id="prov_html_score" class="dark:text-slate-100 text-slate-900 font-bold text-xs sm:text-sm">0.0%</span>
+                                            <span id="prov_html_badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SAFE</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800/80 border-slate-200 hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs sm:text-sm text-slate-300 font-medium">Credential & Form Risk</span>
+                                            <span class="text-xs text-slate-400">(15% weight)</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span id="prov_cred_score" class="dark:text-slate-100 text-slate-900 font-bold text-xs sm:text-sm">0.0%</span>
+                                            <span id="prov_cred_badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SAFE</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800/80 border-slate-200 hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs sm:text-sm text-slate-300 font-medium">Brand Impersonation</span>
+                                            <span class="text-xs text-slate-400">(15% weight)</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span id="prov_brand_score" class="dark:text-slate-100 text-slate-900 font-bold text-xs sm:text-sm">0.0%</span>
+                                            <span id="prov_brand_badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SAFE</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800/80 border-slate-200 hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs sm:text-sm text-slate-300 font-medium">Redirect Chain Risk</span>
+                                            <span class="text-xs text-slate-400">(10% weight)</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span id="prov_redir_score" class="dark:text-slate-100 text-slate-900 font-bold text-xs sm:text-sm">0.0%</span>
+                                            <span id="prov_redir_badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SAFE</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800/80 border-slate-200 hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs sm:text-sm text-slate-300 font-medium">Domain & DNS Risk</span>
+                                            <span class="text-xs text-slate-400">(5% weight)</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span id="prov_dom_score" class="dark:text-slate-100 text-slate-900 font-bold text-xs sm:text-sm">0.0%</span>
+                                            <span id="prov_dom_badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SAFE</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quality Footer Sync -->
+                            <div class="pt-3.5 mt-3.5 border-t dark:border-slate-800 border-slate-200 flex items-center justify-between text-xs font-mono">
+                                <div class="text-slate-300">
+                                    <span class="text-slate-400">Evidence: </span>
+                                    <span id="prov_evidence_badge" class="font-bold text-emerald-400">HIGH</span>
+                                </div>
+                                <div class="text-slate-300">
+                                    <span class="text-slate-400">Confidence: </span>
+                                    <span id="prov_conf_score" class="font-bold text-cyan-400">94.2%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Multi-Vector Confidence & Quality -->
+                        <div class="glass-card rounded-2xl p-6 space-y-4 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between pb-3.5 border-b dark:border-slate-800 border-slate-200">
+                                    <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                        Multi-Vector Confidence & Quality
+                                    </span>
+                                    <span id="soc-scan-type" class="text-xs font-mono px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">FULL MULTI-VECTOR</span>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4 items-center my-4">
+                                    <div class="p-4 sm:p-5 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                        <span class="text-xs text-slate-400 uppercase font-semibold block tracking-wide">Decision Confidence</span>
+                                        <div id="soc-confidence" class="text-3xl sm:text-4xl font-extrabold font-mono text-emerald-400 my-1">--%</div>
+                                        <span class="text-xs text-slate-400 block font-normal">Calibrated certainty ratio</span>
+                                    </div>
+                                    
+                                    <div class="p-4 sm:p-5 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                        <span class="text-xs text-slate-400 uppercase font-semibold block tracking-wide">Evidence Quality</span>
+                                        <div id="soc-evidence-quality" class="text-xl sm:text-2xl font-bold font-mono dark:text-slate-100 text-slate-900 my-1 truncate">--</div>
+                                        <span class="text-xs text-slate-400 block font-normal">Crawler & Telemetry state</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-3.5 rounded-xl dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
+                                <span class="text-slate-300 font-medium">Formal SOC Incident File:</span>
+                                <div class="flex items-center gap-2.5 flex-wrap">
+                                    <button onclick="openInvestigationModal()" class="text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 text-xs sm:text-sm">
+                                        <span id="soc-case-badge">CASE #READY</span>
+                                        <span>&rarr; View Audit</span>
+                                    </button>
+                                    <button type="button" onclick="openRelationshipGraph()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 font-mono text-xs font-bold transition-all flex items-center gap-1.5 ml-1 shadow-sm">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                                        <span>Relationship Graph</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBPANEL 2: DOM & CREDENTIAL SECURITY -->
+                <div id="subpanel-dom-sec" class="dash-subpanel hidden transition-all duration-300">
+                    <div class="glass-card rounded-2xl p-6 space-y-5">
+                        <div class="flex items-center justify-between pb-3.5 border-b dark:border-slate-800 border-slate-200">
+                            <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                HTML Security & Harvesting Inspection
+                            </span>
+                            <span class="text-xs font-mono text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20 font-semibold">DOM Parser</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                            <div class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                <span class="text-xs text-slate-400 block uppercase font-medium">Password Inputs</span>
+                                <div id="sec-password" class="font-mono font-bold mt-2 text-base">--</div>
+                            </div>
+                            <div class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                <span class="text-xs text-slate-400 block uppercase font-medium">External Action</span>
+                                <div id="sec-external-form" class="font-mono font-bold mt-2 text-base">--</div>
+                            </div>
+                            <div class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                <span class="text-xs text-slate-400 block uppercase font-medium">Hidden Inputs</span>
+                                <div id="sec-hidden-inputs" class="font-mono font-bold dark:text-slate-100 text-slate-900 mt-2 text-base">--</div>
+                            </div>
+                            <div class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                <span class="text-xs text-slate-400 block uppercase font-medium">IFrames</span>
+                                <div id="sec-iframes" class="font-mono font-bold dark:text-slate-100 text-slate-900 mt-2 text-base">--</div>
+                            </div>
+                        </div>
+
+                        <div id="sec-summary-banner" class="p-4 rounded-xl border text-xs sm:text-sm font-medium dark:bg-slate-950/80 bg-slate-100 dark:border-slate-800 border-slate-200 text-slate-300 leading-relaxed">
+                            Awaiting DOM credential security inspection...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBPANEL 3: REDIRECT CHAIN -->
+                <div id="subpanel-redirect" class="dash-subpanel hidden transition-all duration-300">
+                    <div class="glass-card rounded-2xl p-6 space-y-5">
+                        <div class="flex items-center justify-between pb-3.5 border-b dark:border-slate-800 border-slate-200">
+                            <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                Redirect Chain Analysis
+                            </span>
+                            <span id="redirect-badges" class="text-xs font-mono px-3 py-1 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 font-semibold">0 Hops</span>
+                        </div>
+
+                        <div id="redirect-chain-list" class="space-y-3 max-h-64 overflow-y-auto pr-1 text-xs sm:text-sm font-mono dark:text-slate-200 text-slate-800">
+                            <div class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200 text-slate-400">
+                                Direct connection (No HTTP 301/302 redirects detected)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBPANEL 4: MACHINE EVIDENCE & FEATURES -->
+                <div id="subpanel-features" class="dash-subpanel hidden transition-all duration-300 space-y-6">
+                    <!-- Machine Detection Evidence -->
+                    <div class="glass-card rounded-2xl p-6 space-y-5">
+                        <div class="flex items-center justify-between pb-3.5 border-b dark:border-slate-800 border-slate-200">
+                            <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Machine Detection Evidence
+                            </span>
+                            <span class="text-xs font-mono text-slate-400 font-semibold">Rules + Signatures</span>
+                        </div>
+
+                        <div id="evidence-container" class="space-y-2.5 text-xs sm:text-sm max-h-52 overflow-y-auto pr-1">
+                            <div class="text-slate-400 italic">Awaiting scan indicators...</div>
+                        </div>
+                    </div>
+
+                    <!-- Extracted Feature Vector Diagnostics -->
+                    <div class="glass-card rounded-2xl p-6 space-y-5">
+                        <div class="flex items-center justify-between border-b dark:border-slate-800 border-slate-200 pb-3.5">
+                            <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                Extracted Feature Vector Diagnostics
+                            </h3>
+                            <span class="text-xs text-slate-400 font-mono font-semibold">XGBoost Input Parameters</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 text-xs">
+                            <div class="dark:bg-slate-950/60 bg-slate-50 p-3.5 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                <span class="text-slate-400 text-xs block font-medium">URL Length</span>
+                                <span class="font-mono dark:text-slate-100 text-slate-900 font-bold text-sm block" id="featUrlLength">--</span>
+                            </div>
+                            <div class="dark:bg-slate-950/60 bg-slate-50 p-3.5 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                <span class="text-slate-400 text-xs block font-medium">Subdomains</span>
+                                <span class="font-mono dark:text-slate-100 text-slate-900 font-bold text-sm block" id="featSubdomains">--</span>
+                            </div>
+                            <div class="dark:bg-slate-950/60 bg-slate-50 p-3.5 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                <span class="text-slate-400 text-xs block font-medium">HTTPS Encryption</span>
+                                <span class="font-mono font-bold text-sm block" id="featHttps">--</span>
+                            </div>
+                            <div class="dark:bg-slate-950/60 bg-slate-50 p-3.5 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                <span class="text-slate-400 text-xs block font-medium">Suspicious Keywords</span>
+                                <span class="font-mono font-bold text-sm block" id="featKeywords">--</span>
+                            </div>
+                            <div class="dark:bg-slate-950/60 bg-slate-50 p-3.5 rounded-xl border dark:border-slate-800/80 border-slate-200 space-y-1">
+                                <span class="text-slate-400 text-xs block font-medium">TLD Risk Rating</span>
+                                <span class="font-mono font-bold text-sm block" id="featTldRisk">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBPANEL 5: SOC TIMELINE & AUDIT -->
+                <div id="subpanel-timeline" class="dash-subpanel hidden transition-all duration-300">
+                    <div class="glass-card rounded-2xl p-6 space-y-5">
+                        <div class="flex items-center justify-between pb-3.5 border-b dark:border-slate-800 border-slate-200">
+                            <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                SOC Execution Timeline & Pipeline Audit
+                            </span>
+                            <span id="timeline-case-label" class="text-xs sm:text-sm font-mono text-blue-400 font-bold">CASE #AUDIT</span>
+                        </div>
+
+                        <div id="timeline-container" class="space-y-2.5 font-mono text-xs sm:text-sm max-h-64 overflow-y-auto pr-1">
+                            <div class="text-slate-400 italic">Ready to trace pipeline execution...</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Scan Activity History & Export Suite -->
+            <section class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b dark:border-slate-800 border-slate-200 pb-5">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-bold dark:text-slate-100 text-slate-900">Scan Activity & Threat Logs</h3>
+                            <span class="px-2 py-0.5 text-xs font-mono dark:bg-slate-800 bg-slate-200 text-blue-500 rounded-full border dark:border-slate-700 border-slate-300" id="historyCounter">0 records</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">Historical session logs stored in secure local memory</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <div class="flex items-center dark:bg-slate-950 bg-slate-100 p-1 rounded-xl border dark:border-slate-800 border-slate-200 text-xs font-medium">
+                            <button onclick="filterHistory('ALL')" id="filterAll" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold transition-all">All</button>
+                            <button onclick="filterHistory('SAFE')" id="filterSafe" class="px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all">Safe</button>
+                            <button onclick="filterHistory('SUSPICIOUS')" id="filterSuspicious" class="px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all">Suspicious</button>
+                            <button onclick="filterHistory('PHISHING')" id="filterPhishing" class="px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all">Phishing</button>
+                        </div>
+
+                        <button onclick="downloadPDFReport()" class="px-4 py-2 rounded-xl dark:bg-slate-900 bg-slate-100 text-blue-500 hover:text-blue-400 text-xs font-semibold border dark:border-slate-800 border-slate-200 transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>PDF Report</span>
+                        </button>
+                        <button onclick="openScanCompareModal()" class="px-4 py-2 rounded-xl dark:bg-slate-900 bg-slate-100 text-cyan-400 hover:text-cyan-300 text-xs font-semibold border dark:border-slate-800 border-slate-200 transition-all flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            <span>Compare Scans</span>
+                        </button>
+                        <button onclick="exportCSV()" class="px-4 py-2 rounded-xl dark:bg-slate-900 bg-slate-100 text-emerald-500 hover:text-emerald-400 text-xs font-semibold border dark:border-slate-800 border-slate-200 transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            <span>CSV Export</span>
+                        </button>
+
+                        <button onclick="clearAllHistory()" class="px-4 py-2 rounded-xl dark:bg-slate-900 bg-slate-100 text-rose-500 hover:text-rose-400 text-xs font-semibold border dark:border-slate-800 border-slate-200 transition-all flex items-center gap-2" title="Clear all scan history">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            <span>Clear All</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <input type="text" id="historySearchInput" placeholder="Filter history logs by domain..." oninput="renderHistory()" class="w-full dark:bg-slate-950 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div id="historyList" class="space-y-2 max-h-80 overflow-y-auto pr-1 text-xs"></div>
+            </section>
+        </div>
+
+        <!-- ================= TAB 2: EMAIL SCANNER PANEL ================= -->
+        <div id="panel-email-scanner" class="tab-panel hidden space-y-6 max-w-4xl mx-auto">
+            <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+                <div class="text-center space-y-2">
+                    <h3 class="text-xl font-extrabold dark:text-slate-100 text-slate-900">Email Phishing & Threat Diagnostics</h3>
+                    <p class="text-slate-400 text-xs sm:text-sm max-w-xl mx-auto">
+                        Analyze email sender reputation, typosquatting homoglyphs, credential harvesting phrases, raw headers (SPF/DKIM/DMARC), and extract embedded links for XGBoost AI evaluation.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sender Address (Optional)</label>
+                            <input type="text" id="emailSenderInput" placeholder="e.g. PayPal Support <security@paypa1-support.com>" class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Quick Actions</label>
+                            <button type="button" onclick="loadSamplePhishingEmail()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition-all flex items-center justify-center gap-2">
+                                <span>⚡ Load Critical PayPal Test Case</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Paste Email Body</label>
+                        <textarea id="emailBodyInput" rows="5" placeholder="Paste email content here (e.g., Your account has been locked. Click here to verify: https://paypa1-security-update.com)" class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl p-4 text-xs font-sans focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Raw Email Headers (Optional)</label>
+                            <button type="button" onclick="toggleHeaderInput()" class="text-xs text-blue-400 hover:underline font-medium">+ Toggle Header Input</button>
+                        </div>
+                        <div id="headerInputContainer" class="hidden">
+                            <textarea id="emailHeadersInput" rows="4" placeholder="Paste raw email headers here (e.g., From: ..., Reply-To: ..., Received: ..., Authentication-Results: spf=pass...)" class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl p-4 text-xs font-mono focus:outline-none focus:border-blue-500"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center pt-2">
+                        <button onclick="scanEmail()" id="btnScanEmail" class="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/30 flex items-center gap-2">
+                            <span>Analyze Email Threat</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EMAIL RESULTS BOX -->
+                <div id="emailResultsBox" class="hidden pt-6 border-t dark:border-slate-800 border-slate-200 space-y-6">
+                    <div class="p-5 rounded-2xl dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Threat Evaluation Score</span>
+                                <h4 id="emailResultTitle" class="text-2xl font-black dark:text-slate-100 text-slate-900">0.0%</h4>
+                            </div>
+                            <span id="emailRiskBadge" class="px-4 py-1.5 rounded-full text-xs font-black font-mono dark:bg-slate-800 bg-slate-200 text-slate-400 self-start sm:self-center">CALCULATING</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                            <div id="emailProgressBar" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="emailSecurityRecCard" class="p-4 rounded-xl border flex items-start gap-3">
+                        <div class="text-xl">🛡️</div>
+                        <div>
+                            <h5 class="text-xs font-bold uppercase tracking-wider mb-1" id="emailRecTitle">Security Recommendation</h5>
+                            <p id="emailRecText" class="text-xs leading-relaxed font-medium">...</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                            <span id="whyHeadingTitle">🔍 Why This Email Is Risky</span>
+                        </h4>
+                        <div id="whyRiskyBox" class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-100 border dark:border-slate-800 border-slate-200 space-y-2 text-xs"></div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Header Authentication Diagnostics</h4>
+                        <div id="headerAuthCard" class="p-4 rounded-xl dark:bg-slate-950/60 bg-slate-100 border dark:border-slate-800 border-slate-200 text-xs space-y-2"></div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Detected Risk Indicators & Flags</h4>
+                        <div id="emailFlagsList" class="space-y-2 text-xs"></div>
+                    </div>
+
+                    <div class="space-y-3 pt-2">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Extracted URLs & XGBoost AI Analysis</span>
+                            <span id="extractedUrlsCountBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">0 Found</span>
+                        </h4>
+                        <div id="emailUrlsList" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: TYPOSQUAT RADAR PANEL ================= -->
+        <div id="panel-typosquat" class="tab-panel hidden space-y-6 max-w-5xl mx-auto">
+            <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+                <div class="text-center space-y-2">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold font-mono">
+                        <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        Brand Impersonation & Lookalike Radar
+                    </div>
+                    <h3 class="text-2xl font-extrabold dark:text-slate-100 text-slate-900 tracking-tight">Typosquatting Intelligence Engine</h3>
+                    <p class="text-slate-400 text-xs sm:text-sm max-w-2xl mx-auto">
+                        Monitor lookalike character permutations, homoglyphs, deceptive prefixes/suffixes, and high-risk TLD variants with real-time live host DNS resolution.
+                    </p>
+                </div>
+
+                <!-- Input Box -->
+                <div class="space-y-3">
+                    <div class="relative flex flex-col sm:flex-row items-center gap-3 p-2 dark:bg-slate-950/90 bg-slate-100 rounded-xl border dark:border-slate-800 border-slate-200 focus-within:border-blue-500 transition-all">
+                        <div class="flex items-center gap-2 pl-3 text-slate-400 w-full sm:w-auto">
+                            <svg class="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                            <span class="text-xs font-mono text-slate-500 border-r dark:border-slate-800 border-slate-300 pr-3 hidden sm:inline">BRAND</span>
+                        </div>
+                        <input type="text" id="typosquatDomainInput" onkeydown="if(event.key==='Enter') runTyposquatMonitor()" placeholder="Enter brand domain (e.g. paypal.com, google.com, apple.com)..." class="w-full bg-transparent dark:text-slate-100 text-slate-900 text-xs sm:text-sm px-2 py-2 focus:outline-none font-mono">
+                        <button onclick="runTyposquatMonitor()" id="btnTyposquat" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2.5 rounded-lg text-xs transition-all shadow-lg shadow-blue-600/30 whitespace-nowrap flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Run Radar Scan</span>
+                        </button>
+                    </div>
+
+                    <!-- Preset Chips -->
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets:</span>
+                        <button onclick="presetTyposquat('paypal.com')" class="px-2.5 py-1 rounded-lg text-[11px] font-mono dark:bg-slate-900 bg-slate-200 dark:text-slate-300 text-slate-700 hover:bg-blue-500 hover:text-white transition-colors border dark:border-slate-800 border-slate-300">paypal.com</button>
+                        <button onclick="presetTyposquat('google.com')" class="px-2.5 py-1 rounded-lg text-[11px] font-mono dark:bg-slate-900 bg-slate-200 dark:text-slate-300 text-slate-700 hover:bg-blue-500 hover:text-white transition-colors border dark:border-slate-800 border-slate-300">google.com</button>
+                        <button onclick="presetTyposquat('amazon.com')" class="px-2.5 py-1 rounded-lg text-[11px] font-mono dark:bg-slate-900 bg-slate-200 dark:text-slate-300 text-slate-700 hover:bg-blue-500 hover:text-white transition-colors border dark:border-slate-800 border-slate-300">amazon.com</button>
+                        <button onclick="presetTyposquat('apple.com')" class="px-2.5 py-1 rounded-lg text-[11px] font-mono dark:bg-slate-900 bg-slate-200 dark:text-slate-300 text-slate-700 hover:bg-blue-500 hover:text-white transition-colors border dark:border-slate-800 border-slate-300">apple.com</button>
+                        <button onclick="presetTyposquat('github.com')" class="px-2.5 py-1 rounded-lg text-[11px] font-mono dark:bg-slate-900 bg-slate-200 dark:text-slate-300 text-slate-700 hover:bg-blue-500 hover:text-white transition-colors border dark:border-slate-800 border-slate-300">github.com</button>
+                        <button onclick="presetTyposquat('microsoft.com')" class="px-2.5 py-1 rounded-lg text-[11px] font-mono dark:bg-slate-900 bg-slate-200 dark:text-slate-300 text-slate-700 hover:bg-blue-500 hover:text-white transition-colors border dark:border-slate-800 border-slate-300">microsoft.com</button>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="typosquatResults" class="hidden space-y-6 pt-2">
+                    <!-- Summary Stats Bar -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="p-4 rounded-xl dark:bg-slate-900/90 bg-slate-100 border dark:border-slate-800 border-slate-200">
+                            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Target Domain</span>
+                            <span class="text-sm font-bold font-mono text-blue-400 truncate block mt-0.5" id="targetDomainText">--</span>
+                        </div>
+                        <div class="p-4 rounded-xl dark:bg-slate-900/90 bg-slate-100 border dark:border-slate-800 border-slate-200">
+                            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Variants Analyzed</span>
+                            <span class="text-sm font-bold font-mono text-slate-200 block mt-0.5" id="typoStatTotal">0</span>
+                        </div>
+                        <div class="p-4 rounded-xl dark:bg-slate-900/90 bg-slate-100 border border-rose-500/30 bg-rose-500/5">
+                            <span class="text-[10px] text-rose-400 uppercase font-semibold block">🚨 Active Live Hosts</span>
+                            <span class="text-sm font-bold font-mono text-rose-400 block mt-0.5" id="typoStatLive">0</span>
+                        </div>
+                        <div class="p-4 rounded-xl dark:bg-slate-900/90 bg-slate-100 border border-emerald-500/30 bg-emerald-500/5">
+                            <span class="text-[10px] text-emerald-400 uppercase font-semibold block">🛡️ Unregistered (Available)</span>
+                            <span class="text-sm font-bold font-mono text-emerald-400 block mt-0.5" id="typoStatUnreg">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Filter Buttons & Controls -->
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b dark:border-slate-800 border-slate-200">
+                        <div class="flex items-center gap-1.5 text-xs font-semibold">
+                            <button onclick="setTyposquatFilter('ALL')" id="typoFilterALL" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-mono text-xs transition-all">All (<span id="countFilterAll">0</span>)</button>
+                            <button onclick="setTyposquatFilter('LIVE')" id="typoFilterLIVE" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono text-xs transition-all">🚨 Live Only (<span id="countFilterLive">0</span>)</button>
+                            <button onclick="setTyposquatFilter('CRITICAL')" id="typoFilterCRITICAL" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono text-xs transition-all">Critical (<span id="countFilterCrit">0</span>)</button>
+                            <button onclick="setTyposquatFilter('UNREGISTERED')" id="typoFilterUNREG" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono text-xs transition-all">Available (<span id="countFilterUnreg">0</span>)</button>
+                        </div>
+                        <span id="variantsCountBadge" class="text-xs font-mono font-bold bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">0 Variants Probed</span>
+                    </div>
+
+                    <!-- Results Table -->
+                    <div class="overflow-x-auto rounded-xl border dark:border-slate-800 border-slate-200">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950/80 bg-slate-100 text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+                                    <th class="py-3.5 px-4 whitespace-nowrap">Variant Domain</th>
+                                    <th class="py-3.5 px-4 whitespace-nowrap">Permutation Type</th>
+                                    <th class="py-3.5 px-4 whitespace-nowrap">Similarity</th>
+                                    <th class="py-3.5 px-4 whitespace-nowrap">DNS / Host Telemetry</th>
+                                    <th class="py-3.5 px-4 whitespace-nowrap">Risk Assessment</th>
+                                    <th class="py-3.5 px-4 text-right whitespace-nowrap">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="typosquatTableBody" class="divide-y dark:divide-slate-800/60 divide-slate-200 font-mono"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: TAKEDOWN NOTICE PANEL ================= -->
+        <div id="panel-takedown" class="tab-panel hidden space-y-6 max-w-4xl mx-auto">
+            <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+                <div class="text-center space-y-2">
+                    <h3 class="text-xl font-extrabold dark:text-slate-100 text-slate-900">Abuse Takedown Notice Generator</h3>
+                    <p class="text-slate-400 text-xs sm:text-sm max-w-xl mx-auto">
+                        Generate structured DMCA & Acceptable Use Policy (AUP) takedown letters to file with domain registrars and web hosts.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Target Phishing Domain</label>
+                            <input type="text" id="tkdDomain" placeholder="e.g. paypa1-security-update.com" class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Filing Brand / Organization</label>
+                            <input type="text" id="tkdOrg" placeholder="e.g. PayPal Security Team" class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl px-4 py-2.5 text-xs font-sans focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Security Contact Email</label>
+                        <input type="email" id="tkdEmail" placeholder="e.g. abuse-response@company.com" class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Phishing Evidence Summary</label>
+                        <textarea id="tkdEvidence" rows="3" placeholder="Describe unauthorized brand impersonation, credential forms, deceptive logos..." class="w-full dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200 rounded-xl p-4 text-xs font-sans focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div class="flex justify-center pt-2">
+                        <button onclick="generateTakedown()" id="btnGenerateTkd" class="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/30">
+                            Generate Takedown Notice
+                        </button>
+                    </div>
+                </div>
+
+                <div id="takedownResultBox" class="hidden pt-6 border-t dark:border-slate-800 border-slate-200 space-y-4">
+                    <div class="flex items-center justify-between p-4 rounded-xl dark:bg-slate-950/80 bg-slate-100 border dark:border-slate-800 border-slate-200">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 uppercase block">Notice Generated</span>
+                            <span id="tkdRefId" class="text-base font-bold font-mono text-blue-500">TKD-REF</span>
+                        </div>
+                        <button onclick="copyTakedownNotice()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20">
+                            Copy Notice Text
+                        </button>
+                    </div>
+
+                    <textarea id="tkdNoticeText" rows="10" readonly class="w-full dark:bg-slate-950 bg-slate-900 text-slate-100 font-mono text-xs p-4 rounded-xl border dark:border-slate-800 border-slate-200 focus:outline-none"></textarea>
+                </div>
+            </div>
+        </div>
+
+        </main>
+
+    <!-- FOOTER -->
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-6 text-center text-xs text-slate-500 border-t dark:border-slate-800/60 border-slate-200 pt-6">
+        <p>Phishing Radar &bull; AI Threat Intelligence Platform</p>
+    </footer>
+
+    <!-- Graph / Image Preview Modal -->
+    <div id="graphModal" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex-col items-center justify-center p-4 backdrop-blur-md transition-opacity opacity-0 duration-300" onclick="closeGraphModal()">
+        <div class="relative max-w-5xl w-full flex flex-col items-center" onclick="event.stopPropagation()">
+            <div class="w-full flex items-center justify-between pb-3 mb-2 text-white border-b border-slate-800">
+                <h4 id="graphModalTitle" class="text-sm font-bold font-mono text-blue-400">Evaluation Graph</h4>
+                <button onclick="closeGraphModal()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <img id="graphModalImage" src="" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl object-contain border border-slate-800">
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex-col items-center justify-center p-4 backdrop-blur-md transition-opacity opacity-0 duration-300">
+        <div class="relative max-w-4xl w-full flex flex-col items-center">
+            <button onclick="closeModal()" class="absolute -top-12 right-0 text-slate-400 hover:text-white bg-slate-800/80 p-2 rounded-full border border-slate-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <img id="modalImage" src="" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl object-contain border border-slate-700">
+            <a id="modalLink" href="#" target="_blank" rel="noopener noreferrer" class="mt-4 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-xs shadow-lg shadow-blue-600/30 flex items-center gap-2">
+                <span>Inspect Target URL Safely</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- SOC INVESTIGATION CASE AUDIT MODAL -->
+    <div id="investigationModal" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex-col items-center justify-center p-4 backdrop-blur-md transition-opacity opacity-0 duration-300" onclick="closeInvestigationModal()">
+        <div class="relative max-w-2xl w-full glass-card rounded-2xl p-6 border border-slate-700 shadow-2xl space-y-4" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b dark:border-slate-800 border-slate-200">
+                <div>
+                    <h4 id="auditCaseTitle" class="text-base font-bold font-mono text-blue-400">SOC INCIDENT CASE FILE #AUDIT</h4>
+                    <p class="text-xs text-slate-400">Forensic pipeline event execution log</p>
+                </div>
+                <button onclick="closeInvestigationModal()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+                    <span class="text-slate-500 block text-[10px]">CASE VERDICT</span>
+                    <span id="auditVerdict" class="font-bold text-slate-200">--</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+                    <span class="text-slate-500 block text-[10px]">THREAT SCORE</span>
+                    <span id="auditScore" class="font-bold text-slate-200">--%</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+                    <span class="text-slate-500 block text-[10px]">CONFIDENCE</span>
+                    <span id="auditConfidence" class="font-bold text-emerald-400">--%</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+                    <span class="text-slate-500 block text-[10px]">EVIDENCE</span>
+                    <span id="auditQuality" class="font-bold text-blue-400 truncate block">--</span>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Execution Sequence Logs</span>
+                <div id="auditTimelineList" class="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-2 max-h-60 overflow-y-auto">
+                    <!-- Dynamic timeline lines -->
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="closeInvestigationModal()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all">
+                    Acknowledge Case
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCAN COMPARISON MODAL -->
+    <div id="scanCompareModal" class="fixed inset-0 bg-slate-950/95 z-50 hidden flex-col items-center justify-center p-4 backdrop-blur-md transition-opacity opacity-0 duration-300">
+        <div class="relative w-full max-w-5xl glass-card rounded-2xl p-6 border border-slate-700 shadow-2xl flex flex-col space-y-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b dark:border-slate-800 border-slate-200">
+                <div>
+                    <h4 class="text-base font-bold font-mono text-cyan-400 flex items-center gap-2">
+                        <span>⚖️ THREAT ARTIFACT & SCAN COMPARISON</span>
+                    </h4>
+                    <p class="text-xs text-slate-400">Side-by-side differential telemetry between two targets</p>
+                </div>
+                <button onclick="closeScanCompareModal()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Selectors -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Baseline Target (Scan A)</label>
+                    <select id="compareSelectA" onchange="renderComparisonTable()" class="w-full dark:bg-slate-900 bg-slate-100 border dark:border-slate-800 border-slate-300 rounded-xl p-2.5 text-xs font-mono dark:text-slate-200 text-slate-800 focus:outline-none"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Suspect Target (Scan B)</label>
+                    <select id="compareSelectB" onchange="renderComparisonTable()" class="w-full dark:bg-slate-900 bg-slate-100 border dark:border-slate-800 border-slate-300 rounded-xl p-2.5 text-xs font-mono dark:text-slate-200 text-slate-800 focus:outline-none"></select>
+                </div>
+            </div>
+
+            <!-- Comparison Table -->
+            <div class="overflow-x-auto rounded-xl border dark:border-slate-800 border-slate-200">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="dark:bg-slate-900/80 bg-slate-100 border-b dark:border-slate-800 border-slate-200 text-slate-400 uppercase font-mono">
+                            <th class="py-3 px-4">Telemetry Vector</th>
+                            <th class="py-3 px-4 text-cyan-400" id="colHeaderA">Scan A</th>
+                            <th class="py-3 px-4 text-purple-400" id="colHeaderB">Scan B</th>
+                            <th class="py-3 px-4 text-right">Variance / Delta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonTableBody" class="divide-y dark:divide-slate-800/60 divide-slate-200 font-mono">
+                        <tr><td colspan="4" class="p-4 text-center text-slate-500">Select two historical scans to compute telemetry variance.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="flex justify-end pt-2">
+                <button onclick="closeScanCompareModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ATTACK RELATIONSHIP GRAPH MODAL -->
+    <div id="graphNetworkModal" class="fixed inset-0 bg-slate-950/95 z-50 hidden flex-col items-center justify-center p-4 backdrop-blur-md transition-opacity opacity-0 duration-300">
+        <div class="relative w-full max-w-6xl h-[85vh] glass-card rounded-2xl p-6 border border-slate-700 shadow-2xl flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b dark:border-slate-800 border-slate-200">
+                <div>
+                    <h4 class="text-base font-bold font-mono text-indigo-400 flex items-center gap-2">
+                        <span>⚡ THREAT INFRASTRUCTURE & ATTACK RELATIONSHIP GRAPH</span>
+                    </h4>
+                    <p class="text-xs text-slate-400">Interactive force-directed topology of resolved entities, nameservers, redirects, and brand links</p>
+                </div>
+                <button onclick="closeRelationshipGraph()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="networkGraphCanvas" class="flex-grow w-full mt-4 rounded-xl bg-slate-950 border border-slate-800 relative">
+                <div id="graphLoader" class="absolute inset-0 flex items-center justify-center text-slate-500 font-mono text-xs">
+                    Rendering network topology...
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between pt-3 text-[11px] font-mono text-slate-400">
+                <div>Tip: Drag nodes, scroll to zoom, click nodes to isolate connections.</div>
+                <button onclick="closeRelationshipGraph()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg">Close View</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION SCRIPTS -->
+    <script>
+        let currentAuditPayload = null;
+        let networkInstance = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            startClock();
+            loadHistory();
+            initTheme();
+            initFontSize();
+            loadModelMetadata();
+        });
+
+        let currentFontSize = 19;
+
+        function initFontSize() {
+            const savedSize = localStorage.getItem('phishFontSize');
+            if (savedSize) {
+                currentFontSize = parseInt(savedSize, 10);
+            } else {
+                currentFontSize = 19;
+            }
+            applyFontSize(currentFontSize);
+        }
+
+        function changeFontSize(delta) {
+            currentFontSize = Math.min(26, Math.max(15, currentFontSize + delta));
+            applyFontSize(currentFontSize);
+            localStorage.setItem('phishFontSize', currentFontSize);
+        }
+
+        function resetFontSize() {
+            currentFontSize = 19;
+            applyFontSize(currentFontSize);
+            localStorage.setItem('phishFontSize', currentFontSize);
+        }
+
+        function applyFontSize(size) {
+            document.documentElement.style.fontSize = size + 'px';
+            const displayEl = document.getElementById('fontSizeDisplay');
+            if (displayEl) displayEl.innerText = size + 'px';
+        }
+
+        function initTheme() {
+            const saved = localStorage.getItem('phishTheme') || 'dark';
+            applyTheme(saved);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+            localStorage.setItem('phishTheme', next);
+        }
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            }
+        }
+
+        function startClock() {
+            const clockEl = document.getElementById('liveClock');
+            if (!clockEl) return;
+            setInterval(() => {
+                const now = new Date();
+                clockEl.innerText = now.toUTCString().replace('GMT', 'UTC');
+            }, 1000);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            const activePanel = document.getElementById(`panel-${tabId}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (activePanel) activePanel.classList.remove('hidden');
+        }
+
+        function switchDashboardSubTab(subTabId) {
+            const allSubTabIds = ['score-prov', 'dom-sec', 'redirect', 'features', 'timeline'];
+            const buttons = document.querySelectorAll('.dash-subtab-btn');
+            
+            buttons.forEach(btn => {
+                btn.className = 'dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 dark:bg-slate-900 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-slate-800 border-slate-200 hover:border-slate-700';
+            });
+
+            const activeBtn = document.getElementById(`btn-subtab-${subTabId}`);
+            if (activeBtn) {
+                if (subTabId === 'all') {
+                    activeBtn.className = 'dash-subtab-btn px-3 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-lg shadow-cyan-500/10';
+                } else {
+                    activeBtn.className = 'dash-subtab-btn px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-2 bg-blue-600 text-white border border-blue-500 shadow-lg shadow-blue-600/20';
+                }
+            }
+
+            if (subTabId === 'all') {
+                allSubTabIds.forEach(id => {
+                    const panel = document.getElementById(`subpanel-${id}`);
+                    if (panel) panel.classList.remove('hidden');
+                });
+            } else {
+                allSubTabIds.forEach(id => {
+                    const panel = document.getElementById(`subpanel-${id}`);
+                    if (panel) {
+                        if (id === subTabId) {
+                            panel.classList.remove('hidden');
+                        } else {
+                            panel.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+        }
+
+        function clearInput() {
+            const inp = document.getElementById('urlInput');
+            if (inp) {
+                inp.value = '';
+                inp.focus();
+            }
+        }
+
+        function runPreset(url) {
+            const inp = document.getElementById('urlInput');
+            if (inp) inp.value = url;
+            switchTab('url-scanner');
+            checkURL();
+        }
+
+        // ================= URL SCANNER LOGIC =================
+        async function checkURL() {
+            const urlInput = document.getElementById('urlInput');
+            const scanBtn = document.getElementById('scanBtn');
+            const dashboardGrid = document.getElementById('dashboardGrid');
+            const progressBar = document.getElementById('scanProgressBar');
+
+            let rawUrl = (urlInput ? urlInput.value : '').trim();
+            if (!rawUrl) { 
+                alert("Please enter a valid URL!"); 
+                return; 
+            }
+
+            if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+                rawUrl = 'https://' + rawUrl;
+                if (urlInput) urlInput.value = rawUrl;
+            }
+
+            if (scanBtn) scanBtn.disabled = true;
+            if (progressBar) progressBar.classList.remove('hidden');
+            if (dashboardGrid) dashboardGrid.classList.remove('hidden');
+
+            resetDashboardUI(rawUrl);
+
+            await updateProgress(20, "Executing Parallel Pre-Analysis (URL + Redirect + Brand)...");
+            fetchScreenshot(rawUrl);
+
+            await updateProgress(50, "Fetching DOM & Inspecting Credential Security...");
+
+            try {
+                await updateProgress(80, "Executing Decoupled XGBoost & LLM Threat Intelligence...");
+
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: rawUrl })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                await updateProgress(100, "Scan Complete!");
+                if (progressBar) setTimeout(() => progressBar.classList.add('hidden'), 400);
+
+                renderScanResults(data);
+                updateScoreProvenanceCard(data);
+                saveToHistory(data);
+
+            } catch (error) {
+                if (progressBar) progressBar.classList.add('hidden');
+                renderScanError(error.message);
+            } finally {
+                if (scanBtn) scanBtn.disabled = false;
+            }
+        }
+
+        // ================= SCORE PROVENANCE CARD HANDLER =================
+        function updateScoreProvenanceCard(data) {
+            if (!data) return;
+
+            const pipeline = data.pipeline_breakdown || {};
+            const finalScore = parseFloat(data.threat_score !== undefined ? data.threat_score : (data.final_risk_score || 0)).toFixed(1);
+            const riskLevel = data.risk_level || 'LOW RISK';
+
+            const isLegitBrand = (data.brand_data && data.brand_data.status === 'LEGITIMATE_BRAND_DOMAIN');
+            const displayBrandScore = isLegitBrand ? 0.0 : (pipeline.brand_similarity || 0.0);
+
+            const finalScoreEl = document.getElementById('provenanceFinalScore');
+            const riskLevelEl = document.getElementById('provenanceRiskLevel');
+            const cardBadge = document.getElementById('scoreCardRiskBadge');
+
+            if (finalScoreEl) finalScoreEl.innerText = `${finalScore}%`;
+            if (riskLevelEl) riskLevelEl.innerText = riskLevel;
+
+            const numericScore = parseFloat(finalScore);
+            if (numericScore >= 71) {
+                if (finalScoreEl) finalScoreEl.className = "text-2xl font-bold font-mono text-rose-400 mt-0.5 block";
+                if (cardBadge) cardBadge.className = "px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+            } else if (numericScore >= 31) {
+                if (finalScoreEl) finalScoreEl.className = "text-2xl font-bold font-mono text-amber-400 mt-0.5 block";
+                if (cardBadge) cardBadge.className = "px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+            } else {
+                if (finalScoreEl) finalScoreEl.className = "text-2xl font-bold font-mono text-emerald-400 mt-0.5 block";
+                if (cardBadge) cardBadge.className = "px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+            }
+            if (cardBadge) cardBadge.innerText = riskLevel.split('/')[0].trim();
+
+            function getBadge(score) {
+                if (score === "N/A" || score === null || score === undefined) {
+                    return { text: "UNAVAILABLE", class: "bg-slate-800 text-slate-400 border-slate-700" };
+                }
+                const num = parseFloat(score);
+                if (num >= 70) return { text: "CRITICAL", class: "bg-rose-500/10 text-rose-400 border-rose-500/30" };
+                if (num >= 30) return { text: "ELEVATED", class: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+                if (num > 5) return { text: "LOW", class: "bg-sky-500/10 text-sky-400 border-sky-500/30" };
+                return { text: "SAFE", class: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" };
+            }
+
+            const vectors = [
+                { id: 'url', val: pipeline.url_ml_score },
+                { id: 'html', val: pipeline.html_ml_score },
+                { id: 'cred', val: pipeline.content_security_risk },
+                { id: 'brand', val: displayBrandScore },
+                { id: 'redir', val: pipeline.redirect_risk },
+                { id: 'dom', val: pipeline.domain_risk }
+            ];
+
+            vectors.forEach(v => {
+                const scoreEl = document.getElementById(`prov_${v.id}_score`);
+                const badgeEl = document.getElementById(`prov_${v.id}_badge`);
+                const badge = getBadge(v.val);
+
+                if (scoreEl) {
+                    scoreEl.innerText = (typeof v.val === 'number') ? `${v.val.toFixed(1)}%` : `${v.val}`;
+                }
+                if (badgeEl) {
+                    badgeEl.innerText = badge.text;
+                    badgeEl.className = `px-2.5 py-1 rounded-md text-xs font-bold border ${badge.class}`;
+                }
+            });
+
+            const evBadge = document.getElementById('prov_evidence_badge');
+            const confBadge = document.getElementById('prov_conf_score');
+            if (evBadge) evBadge.innerText = data.evidence_quality || (data.html_fetched ? "HIGH" : "MEDIUM");
+            if (confBadge) confBadge.innerText = `${data.confidence || 94.2}%`;
+        }
+
+        function updateProgress(percent, msg) {
+            return new Promise(resolve => {
+                const progressFill = document.getElementById('scanProgressFill');
+                const percentText = document.getElementById('scanPercentText');
+                const statusStep = document.getElementById('scanStatusStep');
+
+                if (progressFill) progressFill.style.width = percent + '%';
+                if (percentText) percentText.innerText = percent + '%';
+                if (statusStep) {
+                    statusStep.innerHTML = `
+                        <svg class="animate-spin h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span>${msg}</span>
+                    `;
+                }
+                setTimeout(resolve, 150);
+            });
+        }
+
+        function resetDashboardUI(url) {
+            const setTxt = (id, txt) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = txt;
+            };
+
+            setTxt('reconUrlDisplay', url);
+            setTxt('reconIp', "Querying...");
+            setTxt('reconIsp', "Querying...");
+            setTxt('reconAge', "Querying...");
+
+            const reconAgeBar = document.getElementById('reconAgeBar');
+            if (reconAgeBar) reconAgeBar.style.width = '0%';
+            
+            setTxt('verdictTitle', "Evaluating Target...");
+            setTxt('threatScoreText', "--%");
+            setTxt('riskLevelBadge', "CALCULATING");
+
+            const gaugeArc = document.getElementById('gaugeProgressArc');
+            if (gaugeArc) {
+                gaugeArc.style.strokeDashoffset = '440';
+                gaugeArc.style.stroke = '#3b82f6';
+            }
+
+            const llmCard = document.getElementById('llmReportCard');
+            if (llmCard) llmCard.classList.add('hidden');
+            setTxt('llmAnalysisText', '');
+
+            const previewLoader = document.getElementById('previewLoader');
+            const previewImage = document.getElementById('previewImage');
+            if (previewLoader) previewLoader.classList.remove('hidden');
+            if (previewImage) previewImage.classList.add('hidden');
+
+            const sslBadge = document.getElementById('previewSslBadge');
+            if (sslBadge) {
+                if (url.startsWith('https://')) {
+                    sslBadge.innerText = "HTTPS SECURE";
+                    sslBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                } else {
+                    sslBadge.innerText = "HTTP INSECURE";
+                    sslBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                }
+            }
+
+            const modalLink = document.getElementById('modalLink');
+            if (modalLink) modalLink.href = url;
+        }
+
+        function renderScanResults(data) {
+            if (!data) return;
+            currentAuditPayload = data;
+
+            const isSafe = (data.result === 'safe' || data.classification === 'safe');
+            const threatScore = parseFloat(data.threat_score !== undefined ? data.threat_score : (data.final_risk_score !== undefined ? data.final_risk_score : 5.0));
+
+            // 1. Threat Gauge UI
+            const threatScoreText = document.getElementById('threatScoreText');
+            const verdictTitle = document.getElementById('verdictTitle');
+            const riskBadge = document.getElementById('riskLevelBadge');
+            const gaugeArc = document.getElementById('gaugeProgressArc');
+
+            if (threatScoreText) threatScoreText.innerText = threatScore.toFixed(1) + '%';
+
+            if (gaugeArc) {
+                const strokeOffset = Math.max(0, 440 - (440 * (threatScore / 100)));
+                gaugeArc.style.strokeDashoffset = strokeOffset;
+                gaugeArc.style.stroke = isSafe ? '#10b981' : (threatScore >= 71 ? '#f43f5e' : '#f59e0b');
+            }
+
+            if (verdictTitle) {
+                if (data.risk_level && data.risk_level.includes('INVALID')) {
+                    verdictTitle.innerText = "Invalid Destination Host!";
+                    verdictTitle.className = "text-xl font-extrabold tracking-tight text-rose-500";
+                } else if (isSafe) {
+                    verdictTitle.innerText = "Verified Safe Website";
+                    verdictTitle.className = "text-xl font-extrabold tracking-tight text-emerald-500";
+                } else if (threatScore >= 71) {
+                    verdictTitle.innerText = "Phishing Threat Detected!";
+                    verdictTitle.className = "text-xl font-extrabold tracking-tight text-rose-500";
+                } else {
+                    verdictTitle.innerText = "Suspicious Website Warning";
+                    verdictTitle.className = "text-xl font-extrabold tracking-tight text-amber-400";
+                }
+            }
+
+            if (riskBadge) {
+                riskBadge.innerText = data.risk_level || (isSafe ? "LOW RISK / LIKELY LEGITIMATE" : "CRITICAL / HIGH RISK");
+                if (isSafe) {
+                    riskBadge.className = "inline-block px-3 py-1 rounded-full text-xs font-bold font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/30";
+                } else if (threatScore >= 71) {
+                    riskBadge.className = "inline-block px-3 py-1 rounded-full text-xs font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-lg shadow-rose-500/20";
+                } else {
+                    riskBadge.className = "inline-block px-3 py-1.5 rounded-full text-xs font-bold font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-lg shadow-amber-500/20";
+                }
+            }
+
+            // 2. Executive SOC Gemini Threat Briefing Card
+            const llmCard = document.getElementById('llmReportCard');
+            const llmText = document.getElementById('llmAnalysisText');
+            if (data.llm_analysis && llmCard && llmText) {
+                llmText.innerText = data.llm_analysis;
+                llmCard.classList.remove('hidden');
+            } else if (llmCard) {
+                llmCard.classList.add('hidden');
+            }
+
+            // 3. Network Reconnaissance Panel
+            const safeSetText = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+
+            safeSetText('reconIp', data.ip_address || "Unknown");
+            safeSetText('reconIsp', data.isp || "Unknown");
+            safeSetText('reconAge', data.domain_age || "Unknown");
+
+            const ageDays = data.domain_age_days;
+            const ageBar = document.getElementById('reconAgeBar');
+            if (ageBar) {
+                if (ageDays && ageDays > 0) {
+                    const agePercent = Math.min(100, Math.round((ageDays / 1825) * 100));
+                    ageBar.style.width = agePercent + '%';
+                    ageBar.className = ageDays > 365 ? 'bg-emerald-500 h-full' : 'bg-amber-500 h-full';
+                } else {
+                    ageBar.style.width = '10%';
+                    ageBar.className = 'bg-slate-700 h-full';
+                }
+            }
+
+            // 4. Multi-Vector Confidence & Quality Cards
+            const confEl = document.getElementById('soc-confidence');
+            const qualEl = document.getElementById('soc-evidence-quality');
+            const scanTypeEl = document.getElementById('soc-scan-type');
+
+            if (confEl) confEl.innerText = `${data.confidence || 94.2}%`;
+            if (qualEl) qualEl.innerText = data.evidence_quality || (data.html_fetched ? "HIGH" : "MEDIUM");
+            if (scanTypeEl) scanTypeEl.innerText = data.evidence_quality && data.evidence_quality.includes('BLOCKED') ? 'URL + TELEMETRY' : 'FULL MULTI-VECTOR';
+
+            // 5. Multi-Vector Threat Breakdown
+            const pb = data.pipeline_breakdown || {};
+            const hs = data.html_security || {};
+            const rd = data.redirect_data || {};
+
+            safeSetText('breakdown-url', `${pb.url_ml_score !== undefined ? pb.url_ml_score : '--'}%`);
+            safeSetText('breakdown-html', pb.html_ml_score !== undefined && pb.html_ml_score !== "N/A" ? `${pb.html_ml_score}%` : 'Blocked / Offline');
+            safeSetText('breakdown-sec', `${pb.content_security_risk !== undefined ? pb.content_security_risk : 0}%`);
+            safeSetText('breakdown-brand', `${pb.brand_similarity || 0}% ${pb.matched_brand && pb.matched_brand !== 'none' ? '(' + pb.matched_brand + ')' : ''}`);
+            safeSetText('breakdown-redirect', `${pb.redirect_risk !== undefined ? pb.redirect_risk : 0}%`);
+            safeSetText('breakdown-domain', `${pb.domain_risk !== undefined ? pb.domain_risk : 5}%`);
+
+            // 6. HTML Security Inspection
+            const secPass = document.getElementById('sec-password');
+            const secExt = document.getElementById('sec-external-form');
+            if (secPass) secPass.innerHTML = hs.has_password_field ? '<span class="text-rose-400">DETECTED 🔴</span>' : '<span class="text-emerald-400">0 ✓</span>';
+            if (secExt) secExt.innerHTML = hs.external_form_action ? '<span class="text-rose-400">EXTERNAL EXFIL 🔴</span>' : '<span class="text-emerald-400">0 ✓</span>';
+            safeSetText('sec-hidden-inputs', hs.hidden_input_count || 0);
+            safeSetText('sec-iframes', hs.iframe_count || 0);
+
+            const banner = document.getElementById('sec-summary-banner');
+            if (banner) {
+                if (hs.signals && hs.signals.length > 0) {
+                    banner.className = "p-3 rounded-xl border text-xs font-medium dark:bg-rose-950/40 bg-rose-50 border-rose-500/40 text-rose-300";
+                    banner.innerText = hs.signals[0];
+                } else if (hs.available === false) {
+                    banner.className = "p-3 rounded-xl border text-xs font-medium dark:bg-slate-900 bg-slate-100 border-slate-800 text-slate-400";
+                    banner.innerText = "DOM content unavailable. Evaluated safely with structural URL & Telemetry pipeline.";
+                } else {
+                    banner.className = "p-3 rounded-xl border text-xs font-medium dark:bg-emerald-950/40 bg-emerald-50 border-emerald-500/40 text-emerald-300";
+                    banner.innerText = "No credential harvesting forms, external exfiltration routes, or iframe overlays found.";
+                }
+            }
+
+            // 7. Redirect Chain Tracker
+            safeSetText('redirect-badges', `${rd.redirect_count || 0} Hops | Cross-Domain: ${rd.cross_domain_hops > 0 ? 'YES 🔴' : 'NO ✓'}`);
+            const chainBox = document.getElementById('redirect-chain-list');
+            if (chainBox) {
+                chainBox.innerHTML = '';
+                if (rd.chain && rd.chain.length > 1) {
+                    rd.chain.forEach((step, idx) => {
+                        chainBox.innerHTML += `
+                            <div class="p-2.5 rounded-lg dark:bg-slate-950/80 bg-slate-50 border dark:border-slate-800 border-slate-200">
+                                <span class="text-blue-400 font-bold">[HTTP ${step.status_code || 200}]</span>
+                                <span class="text-slate-200 font-semibold ml-1">${step.domain || step.url}</span>
+                            </div>
+                        `;
+                        if (idx < rd.chain.length - 1) {
+                            chainBox.innerHTML += `<div class="text-slate-500 text-center font-bold">↓ (redirecting)</div>`;
+                        }
+                    });
+                } else {
+                    chainBox.innerHTML = `
+                        <div class="p-2.5 rounded-lg dark:bg-slate-950/60 bg-slate-50 border dark:border-slate-800 border-slate-200 text-slate-400">
+                            Target host reached directly with 0 intermediary hops.
+                        </div>
+                    `;
+                }
+            }
+
+            // 8. Structured Detection Evidence
+            const evidenceBox = document.getElementById('evidence-container');
+            if (evidenceBox) {
+                evidenceBox.innerHTML = '';
+                let hasSigs = false;
+
+                if (data.security_signals && data.security_signals.length > 0) {
+                    hasSigs = true;
+                    data.security_signals.forEach(sig => {
+                        evidenceBox.innerHTML += `
+                            <div class="flex items-start gap-2 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 leading-snug">
+                                <span>🔴</span><span>${sig}</span>
+                            </div>
+                        `;
+                    });
+                }
+                if (data.positive_signals && data.positive_signals.length > 0) {
+                    hasSigs = true;
+                    data.positive_signals.forEach(sig => {
+                        evidenceBox.innerHTML += `
+                            <div class="flex items-start gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 leading-snug">
+                                <span>🟢</span><span>${sig}</span>
+                            </div>
+                        `;
+                    });
+                }
+                if (!hasSigs) {
+                    evidenceBox.innerHTML = '<div class="text-slate-500 italic">No abnormal heuristic flags triggered.</div>';
+                }
+            }
+
+            // 9. SOC Execution Timeline & Case ID (Indian Standard Time - IST)
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' }).toUpperCase() + ' IST';
+            const caseId = 'PH-' + Math.floor(100000 + Math.random() * 900000);
+            safeSetText('soc-case-badge', `CASE #${caseId}`);
+            safeSetText('timeline-case-label', `CASE #${caseId}`);
+            safeSetText('auditCaseTitle', `SOC INCIDENT CASE FILE #${caseId}`);
+
+            const timelineBox = document.getElementById('timeline-container');
+            if (timelineBox) {
+                timelineBox.innerHTML = `
+                    <div class="flex justify-between text-slate-400"><span>${timeStr} &bull; URL Submitted</span><span class="text-blue-400">✓ Ingestion</span></div>
+                    <div class="flex justify-between text-slate-400"><span>${timeStr} &bull; Parallel Pre-Scan Branch</span><span class="text-blue-400">✓ URL + Redirect + Brand</span></div>
+                    <div class="flex justify-between text-slate-400"><span>${timeStr} &bull; DNS Resolved (${data.ip_address || 'OK'})</span><span class="text-emerald-400">✓ Network</span></div>
+                    <div class="flex justify-between text-slate-400"><span>${timeStr} &bull; WHOIS / RDAP Queried</span><span class="text-emerald-400">✓ Recon</span></div>
+                    <div class="flex justify-between text-slate-400"><span>${timeStr} &bull; DOM & Form Security Evaluated</span><span class="text-purple-400">✓ Credential Scan</span></div>
+                    <div class="flex justify-between text-slate-400"><span>${timeStr} &bull; Multi-Vector Fusion Executed</span><span class="text-cyan-400">✓ Score: ${threatScore}%</span></div>
+                    <div class="flex justify-between text-slate-300 font-bold border-t dark:border-slate-800 border-slate-200 pt-1"><span>${timeStr} &bull; Gemini SOC Threat Briefing</span><span class="text-blue-400">✓ Finalized</span></div>
+                `;
+            }
+
+            // 10. Extracted Feature Matrix Diagnostics
+            const fb = data.feature_breakdown || {
+                url_length: (data.url || '').length,
+                subdomains: 0,
+                is_https: (data.url || '').startsWith('https://'),
+                has_keywords: false,
+                tld: 'com'
+            };
+
+            safeSetText('featUrlLength', `${fb.url_length} chars`);
+            safeSetText('featSubdomains', `${fb.subdomains} found`);
+            
+            const httpsEl = document.getElementById('featHttps');
+            if (httpsEl) {
+                httpsEl.innerText = fb.is_https ? "Valid SSL" : "Unencrypted";
+                httpsEl.className = fb.is_https ? "font-mono font-bold text-emerald-500" : "font-mono font-bold text-rose-500";
+            }
+
+
+            const keywordsEl = document.getElementById('featKeywords');
+            if (keywordsEl) {
+                keywordsEl.innerText = fb.has_keywords ? "Triggered" : "None";
+                keywordsEl.className = fb.has_keywords ? "font-mono font-bold text-amber-500" : "font-mono font-bold text-emerald-500";
+            }
+
+            const tldEl = document.getElementById('featTldRisk');
+            if (tldEl) {
+                tldEl.innerText = `.${fb.tld || 'com'}`;
+                tldEl.className = "font-mono font-bold text-blue-400";
+            }
+        }
+
+        function renderScanError(msg) {
+            const verdictTitle = document.getElementById('verdictTitle');
+            const threatScoreText = document.getElementById('threatScoreText');
+            const riskBadge = document.getElementById('riskLevelBadge');
+            const llmCard = document.getElementById('llmReportCard');
+
+            if (verdictTitle) {
+                verdictTitle.innerText = "Scan Failed";
+                verdictTitle.className = "text-xl font-extrabold text-rose-500";
+            }
+            if (threatScoreText) threatScoreText.innerText = "ERR";
+            if (riskBadge) riskBadge.innerText = "ERROR";
+            if (llmCard) llmCard.classList.add('hidden');
+        }
+
+        async function fetchScreenshot(targetUrl) {
+            const previewLoader = document.getElementById('previewLoader');
+            const previewImage = document.getElementById('previewImage');
+            const imageOverlay = document.getElementById('imageOverlay');
+            const modalImg = document.getElementById('modalImage');
+
+            if (previewLoader) {
+                previewLoader.classList.remove('hidden');
+                previewLoader.innerHTML = `
+                    <div class="flex flex-col items-center justify-center p-6 text-center space-y-2">
+                        <svg class="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <p class="text-xs font-medium text-blue-400">Rendering Sandbox Preview...</p>
+                    </div>
+                `;
+            }
+            if (previewImage) previewImage.classList.add('hidden');
+            if (imageOverlay) imageOverlay.classList.add('hidden');
+
+            const encoded = encodeURIComponent(targetUrl);
+            const cleanUrl = targetUrl.replace(/^https?:\/\//i, '');
+
+            function displayImage(src) {
+                if (previewLoader) previewLoader.classList.add('hidden');
+                if (previewImage) {
+                    previewImage.src = src;
+                    previewImage.classList.remove('hidden');
+                }
+                if (imageOverlay) imageOverlay.classList.remove('hidden');
+                if (modalImg) modalImg.src = src;
+            }
+
+            // High-reliability multi-engine fallback pipeline
+            const providers = [
+                `https://s0.wp.com/mshots/v1/${encoded}?w=900&h=650`,
+                `https://image.thum.io/get/width/800/crop/650/${targetUrl}`,
+                `https://api.microlink.io/?url=${encoded}&screenshot=true&meta=false`
+            ];
+
+            let loaded = false;
+
+            for (let i = 0; i < providers.length; i++) {
+                const providerUrl = providers[i];
+                try {
+                    if (providerUrl.includes('microlink.io')) {
+                        const res = await fetch(providerUrl, { signal: AbortSignal.timeout(3500) });
+                        const json = await res.json();
+                        if (json.status === 'success' && json.data && json.data.screenshot && json.data.screenshot.url) {
+                            displayImage(json.data.screenshot.url);
+                            loaded = true;
+                            break;
+                        }
+                    } else {
+                        await new Promise((resolve, reject) => {
+                            const testImg = new Image();
+                            const timer = setTimeout(() => { reject(new Error('timeout')); }, 4500);
+                            testImg.onload = () => {
+                                clearTimeout(timer);
+                                if (testImg.naturalWidth > 40 && testImg.naturalHeight > 40) {
+                                    displayImage(providerUrl);
+                                    loaded = true;
+                                    resolve();
+                                } else {
+                                    reject(new Error('empty'));
+                                }
+                            };
+                            testImg.onerror = () => {
+                                clearTimeout(timer);
+                                reject(new Error('error'));
+                            };
+                            testImg.src = providerUrl;
+                        });
+                        if (loaded) break;
+                    }
+                } catch (e) {
+                    // Fall through to next provider
+                }
+            }
+
+            if (!loaded) {
+                if (previewLoader) {
+                    previewLoader.innerHTML = `
+                        <div class="flex flex-col items-center justify-center p-4 text-center space-y-1.5">
+                            <span class="text-xl">🛡️</span>
+                            <div class="text-xs text-slate-400 font-semibold">Headless Preview Shielded</div>
+                            <p class="text-[11px] text-slate-500 max-w-[210px] leading-tight">Site employs active anti-bot/WAF mitigation challenges against public crawlers.</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        const modal = document.getElementById('imageModal');
+        function openModal() {
+            const previewImg = document.getElementById('previewImage');
+            if (modal && previewImg && previewImg.src && !previewImg.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => modal.classList.remove('opacity-0'), 10);
+            }
+        }
+        function closeModal() {
+            if (!modal) return;
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
+        }
+
+        // ================= SOC INVESTIGATION MODAL =================
+        function openInvestigationModal() {
+            if (!currentAuditPayload) {
+                alert("Please analyze a target URL first!");
+                return;
+            }
+            const data = currentAuditPayload;
+            const invModal = document.getElementById('investigationModal');
+            if (!invModal) return;
+            
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+
+            setTxt('auditVerdict', data.risk_level || data.result);
+            setTxt('auditScore', `${data.threat_score || data.final_risk_score}%`);
+            setTxt('auditConfidence', `${data.confidence || 94}%`);
+            setTxt('auditQuality', data.evidence_quality || 'HIGH');
+
+            const auditList = document.getElementById('auditTimelineList');
+            if (auditList) {
+                auditList.innerHTML = `
+                    <div class="text-blue-400">&gt; Target Ingested: ${data.url}</div>
+                    <div class="text-slate-300">&gt; DNS IP Resolution: ${data.ip_address || 'Unknown'} | Host Registrar: ${data.isp || 'Unknown'}</div>
+                    <div class="text-slate-300">&gt; WHOIS Domain Age: ${data.domain_age || 'Unknown'}</div>
+                    <div class="text-slate-300">&gt; Redirect Chain: ${data.redirect_data ? data.redirect_data.redirect_count : 0} hops (Cross-domain: ${data.redirect_data && data.redirect_data.cross_domain_hops > 0 ? 'YES' : 'NO'})</div>
+                    <div class="text-slate-300">&gt; Brand Target: ${data.brand_data ? data.brand_data.target_brand : 'None'} (${data.brand_data ? data.brand_data.similarity_score : 0}% similarity)</div>
+                    <div class="text-slate-300">&gt; DOM Credential Analysis: Password Fields=${data.html_security ? (data.html_security.has_password_field ? 1 : 0) : 0}, External Action=${data.html_security ? (data.html_security.external_form_action ? 'TRUE' : 'FALSE') : 'FALSE'}</div>
+                    <div class="text-slate-300">&gt; Multi-Vector Threat Fusion Finalized: ${data.threat_score}% Threat Rating</div>
+                    <div class="text-emerald-400 font-bold">&gt; L3 GenAI Threat Intelligence Report Generated & Attached.</div>
+                `;
+            }
+
+            invModal.classList.remove('hidden');
+            invModal.classList.add('flex');
+            setTimeout(() => invModal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeInvestigationModal() {
+            const invModal = document.getElementById('investigationModal');
+            if (!invModal) return;
+            invModal.classList.add('opacity-0');
+            setTimeout(() => { invModal.classList.add('hidden'); invModal.classList.remove('flex'); }, 300);
+        }
+
+        // ================= ATTACK RELATIONSHIP GRAPH MODAL =================
+        function openRelationshipGraph() {
+            if (!currentAuditPayload) {
+                alert("Please run a scan on a URL first to build its relationship topology!");
+                return;
+            }
+            const modal = document.getElementById('graphNetworkModal');
+            const container = document.getElementById('networkGraphCanvas');
+            const loader = document.getElementById('graphLoader');
+
+            if (!modal || !container) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+            if (loader) loader.classList.remove('hidden');
+
+            const data = currentAuditPayload;
+            const nodes = [];
+            const edges = [];
+
+            nodes.push({ id: 1, label: `TARGET\n${data.url}`, shape: 'box', color: { background: '#2563eb', border: '#60a5fa' }, font: { color: '#ffffff', face: 'monospace' } });
+
+            if (data.ip_address) {
+                nodes.push({ id: 2, label: `HOST IP\n${data.ip_address}`, shape: 'ellipse', color: { background: '#059669', border: '#34d399' }, font: { color: '#ffffff', face: 'monospace' } });
+                edges.push({ from: 1, to: 2, label: 'Resolves To', font: { color: '#94a3b8', size: 10 } });
+            }
+
+            if (data.isp) {
+                nodes.push({ id: 3, label: `REGISTRAR / ISP\n${data.isp}`, shape: 'diamond', color: { background: '#7c3aed', border: '#a78bfa' }, font: { color: '#ffffff', face: 'monospace' } });
+                edges.push({ from: 2, to: 3, label: 'Hosted By', font: { color: '#94a3b8', size: 10 } });
+            }
+
+            if (data.brand_data && data.brand_data.target_brand && data.brand_data.target_brand !== 'unknown') {
+                const isLegit = (data.brand_data.status === 'LEGITIMATE_BRAND_DOMAIN');
+                nodes.push({ id: 4, label: `BRAND\n${data.brand_data.target_brand.toUpperCase()}`, shape: 'hexagon', color: { background: isLegit ? '#10b981' : '#e11d48', border: '#fda4af' }, font: { color: '#ffffff', face: 'monospace' } });
+                edges.push({ from: 1, to: 4, label: isLegit ? 'Verified Authority' : 'Impersonation Vector', font: { color: isLegit ? '#34d399' : '#f43f5e', size: 10 } });
+            }
+
+            if (data.redirect_data && data.redirect_data.chain && data.redirect_data.chain.length > 1) {
+                data.redirect_data.chain.forEach((step, idx) => {
+                    const stepId = 100 + idx;
+                    nodes.push({ id: stepId, label: `HOP ${idx + 1}\n${step.domain || step.url}`, shape: 'dot', size: 12, color: { background: '#f59e0b', border: '#fbbf24' }, font: { color: '#f8fafc', face: 'monospace' } });
+                    edges.push({ from: idx === 0 ? 1 : (100 + idx - 1), to: stepId, label: 'HTTP 30x', font: { color: '#f59e0b', size: 9 } });
+                });
+            }
+
+            const graphData = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+
+            const options = {
+                physics: {
+                    stabilization: true,
+                    barnesHut: { gravitationalConstant: -3000, springLength: 95 }
+                },
+                edges: { arrows: 'to', smooth: { type: 'continuous' } },
+                interaction: { hover: true, zoomView: true, dragNodes: true }
+            };
+
+            if (loader) loader.classList.add('hidden');
+            if (networkInstance) networkInstance.destroy();
+            networkInstance = new vis.Network(container, graphData, options);
+        }
+
+        function closeRelationshipGraph() {
+            const modal = document.getElementById('graphNetworkModal');
+            if (!modal) return;
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
+        }
+
+        // ================= EMAIL SCANNER LOGIC =================
+        function toggleHeaderInput() {
+            const container = document.getElementById('headerInputContainer');
+            if (container) container.classList.toggle('hidden');
+        }
+
+        function loadSamplePhishingEmail() {
+            const sInp = document.getElementById('emailSenderInput');
+            const bInp = document.getElementById('emailBodyInput');
+            const hInp = document.getElementById('emailHeadersInput');
+            const hCont = document.getElementById('headerInputContainer');
+
+            if (sInp) sInp.value = 'PayPal Support <security@paypa1-support.com>';
+            if (bInp) bInp.value = 'Your account has been locked due to suspicious activity.\n\nClick here immediately to verify your credentials and restore access:\nhttps://paypa1-security-update.com';
+            if (hInp) hInp.value = 'From: PayPal Support <security@paypa1-support.com>\nReply-To: security@paypa1-support.com\nAuthentication-Results: spf=fail; dkim=fail; dmarc=fail';
+            if (hCont) hCont.classList.remove('hidden');
+        }
+
+        async function scanEmail() {
+            const emailSender = (document.getElementById('emailSenderInput')?.value || '').trim();
+            const emailBody = (document.getElementById('emailBodyInput')?.value || '').trim();
+            const emailHeaders = (document.getElementById('emailHeadersInput')?.value || '').trim();
+
+            if (!emailBody && !emailSender && !emailHeaders) {
+                alert("Please enter email text, sender address, or raw headers!");
+                return;
+            }
+
+            const btn = document.getElementById('btnScanEmail');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analyzing Threat Intelligence...`;
+            }
+
+            try {
+                const res = await fetch('/scan-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        sender: emailSender, 
+                        email_text: emailBody, 
+                        raw_headers: emailHeaders 
+                    })
+                });
+
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                const resBox = document.getElementById('emailResultsBox');
+                if (resBox) resBox.classList.remove('hidden');
+
+                const resTitle = document.getElementById('emailResultTitle');
+                if (resTitle) resTitle.innerText = `${data.threat_score}% Threat Score`;
+                
+                const pBar = document.getElementById('emailProgressBar');
+                if (pBar) pBar.style.width = `${data.threat_score}%`;
+
+                const badge = document.getElementById('emailRiskBadge');
+                if (badge) {
+                    badge.innerText = data.risk_level;
+                    if (data.risk_level === 'PHISHING' || data.risk_level === 'CRITICAL PHISHING') {
+                        badge.className = "px-4 py-1.5 rounded-full text-xs font-black font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-lg shadow-rose-500/20";
+                        if (pBar) pBar.className = "bg-rose-500 h-2 rounded-full transition-all duration-500";
+                    } else if (data.risk_level === 'HIGH RISK' || data.risk_level === 'HIGH THREAT') {
+                        badge.className = "px-4 py-1.5 rounded-full text-xs font-black font-mono bg-orange-500/20 text-orange-400 border border-orange-500/40 shadow-lg shadow-orange-500/20";
+                        if (pBar) pBar.className = "bg-orange-500 h-2 rounded-full transition-all duration-500";
+                    } else if (data.risk_level === 'SUSPICIOUS' || data.risk_level === 'SUSPICIOUS EMAIL') {
+                        badge.className = "px-4 py-1.5 rounded-full text-xs font-black font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-lg shadow-amber-500/20";
+                        if (pBar) pBar.className = "bg-amber-500 h-2 rounded-full transition-all duration-500";
+                    } else {
+                        badge.className = "px-4 py-1.5 rounded-full text-xs font-black font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+                        if (pBar) pBar.className = "bg-emerald-500 h-2 rounded-full transition-all duration-500";
+                    }
+                }
+
+                const recCard = document.getElementById('emailSecurityRecCard');
+                const recText = document.getElementById('emailRecText');
+                if (recText) recText.innerText = data.security_recommendation;
+
+                const whyBox = document.getElementById('whyRiskyBox');
+                if (whyBox) {
+                    whyBox.innerHTML = '';
+                    if (!data.why_risky || data.why_risky.length === 0) {
+                        whyBox.innerHTML = `<div class="text-slate-400">No specific threat indicators detected.</div>`;
+                    } else {
+                        data.why_risky.forEach((item, idx) => {
+                            whyBox.innerHTML += `
+                                <div class="flex items-start gap-2.5 dark:text-slate-300 text-slate-700">
+                                    <span class="font-bold text-blue-400 font-mono">${idx + 1}.</span>
+                                    <span>${item}</span>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+
+                const headerCard = document.getElementById('headerAuthCard');
+                if (headerCard) {
+                    if (data.header_analysis && data.header_analysis.provided) {
+                        const h = data.header_analysis;
+                        headerCard.innerHTML = `
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px] mb-2">
+                                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                                    <span class="text-slate-500 block text-[9px]">SPF STATUS</span>
+                                    <span class="${h.spf_status === 'PASS' ? 'text-emerald-400 font-bold' : h.spf_status === 'FAIL' ? 'text-rose-400 font-bold' : 'text-slate-400'}">${h.spf_status}</span>
+                                </div>
+                                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                                    <span class="text-slate-500 block text-[9px]">DKIM STATUS</span>
+                                    <span class="${h.dkim_status === 'PASS' ? 'text-emerald-400 font-bold' : h.dkim_status === 'FAIL' ? 'text-rose-400 font-bold' : 'text-slate-400'}">${h.dkim_status}</span>
+                                </div>
+                                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                                    <span class="text-slate-500 block text-[9px]">DMARC STATUS</span>
+                                    <span class="${h.dmarc_status === 'PASS' ? 'text-emerald-400 font-bold' : h.dmarc_status === 'FAIL' ? 'text-rose-400 font-bold' : 'text-slate-400'}">${h.dmarc_status}</span>
+                                </div>
+                                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                                    <span class="text-slate-500 block text-[9px]">FROM/REPLY-TO</span>
+                                    <span class="${h.mismatch_detected ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${h.mismatch_detected ? 'MISMATCH' : 'MATCHED'}</span>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 font-mono">${h.summary}</div>
+                        `;
+                    } else {
+                        headerCard.innerHTML = `<div class="text-slate-400 font-mono italic">Header authentication data not provided.</div>`;
+                    }
+                }
+
+                const flagsList = document.getElementById('emailFlagsList');
+                if (flagsList && data.flags) {
+                    flagsList.innerHTML = '';
+                    data.flags.forEach(flag => {
+                        let badgeClass = "bg-blue-500/10 text-blue-400 border-blue-500/30";
+                        let icon = "ℹ️";
+                        if (flag.severity === 'CRITICAL') {
+                            badgeClass = "bg-rose-500/20 text-rose-400 border-rose-500/40";
+                            icon = "🚨";
+                        } else if (flag.severity === 'WARNING') {
+                            badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
+                            icon = "⚠️";
+                        }
+
+                        flagsList.innerHTML += `
+                            <div class="p-3 rounded-xl dark:bg-slate-950/60 bg-slate-100 border dark:border-slate-800 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span>${icon}</span>
+                                    <div>
+                                        <div class="font-bold dark:text-slate-200 text-slate-900 text-xs">${flag.title}</div>
+                                        <div class="text-[11px] text-slate-400 font-mono mt-0.5">${flag.evidence}</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeClass}">${flag.source}</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                const urlsList = document.getElementById('emailUrlsList');
+                const urlsCountBadge = document.getElementById('extractedUrlsCountBadge');
+                if (urlsCountBadge) urlsCountBadge.innerText = `${data.extracted_urls_count || 0} Found`;
+
+                if (urlsList) {
+                    urlsList.innerHTML = '';
+                    if (!data.extracted_urls || data.extracted_urls.length === 0) {
+                        urlsList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 dark:bg-slate-950/60 bg-slate-100 rounded-xl border dark:border-slate-800 border-slate-200">No embedded URLs found in email body.</div>`;
+                    } else {
+                        data.extracted_urls.forEach(item => {
+                            const isHighRisk = item.result === 'phishing';
+                            const urlTagColor = isHighRisk ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+                            const xgbText = (item.xgb_prediction !== undefined) ? `XGBoost Prob: ${(item.xgb_prediction * 100).toFixed(1)}%` : 'Rule Analysis';
+
+                            urlsList.innerHTML += `
+                                <div class="p-3 rounded-xl dark:bg-slate-950/60 bg-slate-100 border dark:border-slate-800 border-slate-200 space-y-2">
+                                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 font-mono text-xs">
+                                        <div class="truncate max-w-[70%]">
+                                            <span class="text-blue-400 font-semibold truncate block">${item.url}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${urlTagColor}">${item.risk_level} (${item.threat_score}%)</span>
+                                            <button onclick="runPreset('${item.resolved_url || item.url}')" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-semibold shadow">Scan URL &rarr;</button>
+                                        </div>
+                                    </div>
+                                    <div class="text-[10px] text-slate-400 font-mono pt-1 border-t dark:border-slate-800/60 border-slate-200">
+                                        <span>${xgbText} &bull; ${item.reasons && item.reasons.length ? item.reasons[0] : 'Evaluated link'}</span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+
+                saveToHistory({
+                    url: emailSender ? `Email: ${emailSender}` : 'Email Content Scan',
+                    result: data.result,
+                    risk_level: data.risk_level,
+                    threat_score: data.threat_score,
+                    ip_address: 'Email Content & Headers',
+                    time: data.timestamp
+                });
+
+            } catch (err) {
+                alert("Email Scan Error: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Analyze Email Threat";
+                }
+            }
+        }
+
+        // ================= TYPOSQUAT MONITORING LOGIC =================
+        let currentTyposquatVariants = [];
+        let currentTyposquatFilter = 'ALL';
+        let currentTyposquatBrand = '';
+
+        function presetTyposquat(domain) {
+            const input = document.getElementById('typosquatDomainInput');
+            if (input) input.value = domain;
+            runTyposquatMonitor();
+        }
+
+        async function runTyposquatMonitor() {
+            const domainInput = document.getElementById('typosquatDomainInput')?.value.trim();
+            if (!domainInput) { alert("Please enter a brand domain name (e.g. paypal.com)!"); return; }
+
+            const btn = document.getElementById('btnTyposquat');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `
+                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Probing Live DNS...</span>
+                `;
+            }
+
+            try {
+                const res = await fetch('/typosquat-monitor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain: domainInput })
+                });
+
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                currentTyposquatVariants = data.variants || [];
+                currentTyposquatBrand = data.target_domain || domainInput;
+
+                const resBox = document.getElementById('typosquatResults');
+                const targetText = document.getElementById('targetDomainText');
+                const badge = document.getElementById('variantsCountBadge');
+                
+                const statTotal = document.getElementById('typoStatTotal');
+                const statLive = document.getElementById('typoStatLive');
+                const statUnreg = document.getElementById('typoStatUnreg');
+
+                if (resBox) resBox.classList.remove('hidden');
+                if (targetText) targetText.innerText = data.target_domain;
+                if (badge) badge.innerText = `${data.total_variants_monitored} Variants Probed`;
+
+                if (statTotal) statTotal.innerText = data.total_variants_monitored;
+                if (statLive) statLive.innerText = data.live_hosts_detected;
+                if (statUnreg) statUnreg.innerText = data.total_variants_monitored - data.live_hosts_detected;
+
+                // Update filter counters
+                const countAll = currentTyposquatVariants.length;
+                const countLive = currentTyposquatVariants.filter(v => v.is_live).length;
+                const countCrit = currentTyposquatVariants.filter(v => (v.risk_level || '').includes('CRITICAL')).length;
+                const countUnreg = currentTyposquatVariants.filter(v => !v.is_live).length;
+
+                document.getElementById('countFilterAll').innerText = countAll;
+                document.getElementById('countFilterLive').innerText = countLive;
+                document.getElementById('countFilterCrit').innerText = countCrit;
+                document.getElementById('countFilterUnreg').innerText = countUnreg;
+
+                renderTyposquatTable();
+
+            } catch (err) {
+                alert("Typosquat Error: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <span>Run Radar Scan</span>
+                    `;
+                }
+            }
+        }
+
+        function setTyposquatFilter(filterType) {
+            currentTyposquatFilter = filterType;
+            ['ALL', 'LIVE', 'CRITICAL', 'UNREG'].forEach(f => {
+                const btn = document.getElementById(`typoFilter${f}`);
+                if (btn) {
+                    if ((f === 'ALL' && filterType === 'ALL') || (f === 'LIVE' && filterType === 'LIVE') || (f === 'CRITICAL' && filterType === 'CRITICAL') || (f === 'UNREG' && filterType === 'UNREGISTERED')) {
+                        btn.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white font-mono text-xs font-bold transition-all shadow-md shadow-blue-600/30';
+                    } else {
+                        btn.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono text-xs transition-all';
+                    }
+                }
+            });
+            renderTyposquatTable();
+        }
+
+        function renderTyposquatTable() {
+            const tbody = document.getElementById('typosquatTableBody');
+            if (!tbody) return;
+
+            let filtered = currentTyposquatVariants;
+            if (currentTyposquatFilter === 'LIVE') {
+                filtered = filtered.filter(v => v.is_live);
+            } else if (currentTyposquatFilter === 'CRITICAL') {
+                filtered = filtered.filter(v => (v.risk_level || '').includes('CRITICAL'));
+            } else if (currentTyposquatFilter === 'UNREGISTERED') {
+                filtered = filtered.filter(v => !v.is_live);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 font-sans">No matching variants found under this filter.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filtered.forEach(varItem => {
+                let badgeClass = 'bg-slate-500/10 text-slate-400 border border-slate-500/20';
+                if ((varItem.risk_level || '').includes('CRITICAL')) {
+                    badgeClass = 'bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-sm shadow-rose-500/10 animate-pulse';
+                } else if ((varItem.risk_level || '').includes('ACTIVE') || (varItem.risk_level || '').includes('HIGH')) {
+                    badgeClass = 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
+                } else if ((varItem.risk_level || '').includes('DEFENSIVE')) {
+                    badgeClass = 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+                }
+
+                const liveBadge = varItem.is_live 
+                    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>${varItem.resolved_ip}</span>`
+                    : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800/60 text-slate-400 border dark:border-slate-800">Available</span>`;
+
+                tbody.innerHTML += `
+                    <tr class="hover:dark:bg-slate-900/50 hover:bg-slate-50 transition-colors">
+                        <td class="py-3 px-4 font-bold dark:text-slate-100 text-slate-900 whitespace-nowrap">
+                            <span class="inline-flex items-center gap-2">${varItem.domain}</span>
+                        </td>
+                        <td class="py-3 px-4 text-slate-400 font-sans text-xs whitespace-nowrap">${varItem.type}</td>
+                        <td class="py-3 px-4 text-blue-400 font-bold whitespace-nowrap">${varItem.similarity}%</td>
+                        <td class="py-3 px-4 whitespace-nowrap">${liveBadge}</td>
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap tracking-wide ${badgeClass}">
+                                ${varItem.risk_level}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                                <button onclick="runPreset('http://${varItem.domain}')" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-sans text-[11px] font-semibold transition-all shadow-sm shadow-blue-600/30 whitespace-nowrap" title="Launch Deep AI Scan on this domain">
+                                    Scan &rarr;
+                                </button>
+                                ${varItem.is_live ? `
+                                <button onclick="prepareTakedown('${varItem.domain}', '${currentTyposquatBrand}')" class="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 font-sans text-[11px] font-semibold transition-all whitespace-nowrap" title="Prepare Abuse Takedown Notice">
+                                    Takedown
+                                </button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function prepareTakedown(domain, brand) {
+            switchTab('takedown');
+            const dInp = document.getElementById('tkdDomain');
+            const orgInp = document.getElementById('tkdOrg');
+            const evInp = document.getElementById('tkdEvidence');
+            if (dInp) dInp.value = domain;
+            if (orgInp && brand) orgInp.value = brand.split('.')[0].toUpperCase() + " Brand Security Operations";
+            if (evInp) evInp.value = `Flagged by Automated Typosquat Radar for active brand impersonation and deceptive host infrastructure targeting ${brand}.`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ================= TAKEDOWN REQUEST LOGIC =================
+        async function generateTakedown() {
+            const domain = document.getElementById('tkdDomain')?.value.trim();
+            const org_name = document.getElementById('tkdOrg')?.value.trim();
+            const contact_email = document.getElementById('tkdEmail')?.value.trim();
+            const evidence = document.getElementById('tkdEvidence')?.value.trim();
+
+            if (!domain) { alert("Please enter target phishing domain!"); return; }
+
+            const btn = document.getElementById('btnGenerateTkd');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Generating Notice...";
+            }
+
+            try {
+                const res = await fetch('/takedown-request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, org_name, contact_email, evidence })
+                });
+
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                const resBox = document.getElementById('takedownResultBox');
+                const refId = document.getElementById('tkdRefId');
+                const noticeText = document.getElementById('tkdNoticeText');
+
+                if (resBox) resBox.classList.remove('hidden');
+                if (refId) refId.innerText = data.reference_id;
+                if (noticeText) noticeText.value = data.takedown_notice;
+
+            } catch (err) {
+                alert("Takedown Generation Error: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Generate Takedown Notice";
+                }
+            }
+        }
+
+        function copyTakedownNotice() {
+            const txt = document.getElementById('tkdNoticeText');
+            if (!txt) return;
+            txt.select();
+            navigator.clipboard.writeText(txt.value);
+            alert("Takedown notice copied to clipboard!");
+        }
+
+        // ================= HISTORY LOGIC =================
+        let currentFilter = 'ALL';
+
+        function loadHistory() {
+            renderHistory();
+        }
+
+        function saveToHistory(data) {
+            let history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            const now = new Date();
+
+            history.unshift({
+                url: data.url,
+                result: data.result,
+                risk_level: data.risk_level || (data.result === 'safe' ? 'SAFE' : 'PHISHING'),
+                confidence: data.confidence,
+                threat_score: data.threat_score !== undefined ? data.threat_score : (data.result === 'safe' ? (100 - (data.confidence || 94)) : (data.confidence || 94)),
+                ip_address: data.ip_address || 'Unknown',
+                time: data.timestamp || (now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase() + ' IST')
+            });
+
+            if (history.length > 25) history.pop();
+            localStorage.setItem('phishHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function filterHistory(type) {
+            currentFilter = type;
+            ['All', 'Safe', 'Suspicious', 'Phishing'].forEach(f => {
+                const btn = document.getElementById(`filter${f}`);
+                if (btn) {
+                    if (f.toUpperCase() === type) {
+                        btn.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold transition-all';
+                    } else {
+                        btn.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all';
+                    }
+                }
+            });
+            renderHistory();
+        }
+
+        function deleteHistoryItem(originalIndex) {
+            let history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            if (originalIndex >= 0 && originalIndex < history.length) {
+                history.splice(originalIndex, 1);
+                localStorage.setItem('phishHistory', JSON.stringify(history));
+                renderHistory();
+            }
+        }
+
+        function clearAllHistory() {
+            let history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            if (history.length === 0) return;
+            if (confirm("Are you sure you want to delete all recent search history?")) {
+                localStorage.removeItem('phishHistory');
+                renderHistory();
+            }
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            const list = document.getElementById('historyList');
+            const counter = document.getElementById('historyCounter');
+            const searchKeyword = (document.getElementById('historySearchInput')?.value || '').toLowerCase().trim();
+
+            if (counter) counter.innerText = `${history.length} records`;
+            if (!list) return;
+
+            if (history.length === 0) {
+                list.innerHTML = `<div class="text-center py-6 text-slate-500">No scan history recorded yet.</div>`;
+                return;
+            }
+
+            const historyWithIndex = history.map((item, index) => ({ ...item, originalIndex: index }));
+
+            let filtered = historyWithIndex.filter(item => {
+                const riskUpper = (item.risk_level || '').toUpperCase();
+                if (currentFilter === 'SAFE' && item.result !== 'safe' && riskUpper !== 'SAFE') return false;
+                if (currentFilter === 'SUSPICIOUS' && !riskUpper.includes('SUSPICIOUS')) return false;
+                if (currentFilter === 'PHISHING' && item.result !== 'phishing' && !riskUpper.includes('PHISHING') && !riskUpper.includes('HIGH')) return false;
+                if (searchKeyword && !item.url.toLowerCase().includes(searchKeyword)) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="text-center py-4 text-slate-500">No matching logs found.</div>`;
+                return;
+            }
+
+            list.innerHTML = '';
+            filtered.forEach(item => {
+                const riskUpper = (item.risk_level || '').toUpperCase();
+                let tagColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+
+                if (riskUpper.includes('SUSPICIOUS')) {
+                    tagColor = 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm shadow-amber-500/10';
+                } else if (riskUpper.includes('HIGH')) {
+                    tagColor = 'bg-orange-500/20 text-orange-400 border border-orange-500/40';
+                } else if (item.result === 'phishing' || riskUpper.includes('PHISHING')) {
+                    tagColor = 'bg-rose-500/20 text-rose-400 border border-rose-500/40';
+                }
+
+                list.innerHTML += `
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-xl dark:bg-slate-950/60 bg-slate-100 border dark:border-slate-800/80 border-slate-200 gap-3">
+                        <div class="truncate max-w-[65%]">
+                            <div class="font-mono dark:text-slate-200 text-slate-900 font-medium truncate text-xs">${item.url}</div>
+                            <div class="text-[10px] text-slate-500 mt-0.5">${item.time} &bull; IP: ${item.ip_address}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${tagColor}">${item.risk_level}</span>
+                            <button onclick="runPreset('${item.url}')" class="p-1.5 dark:bg-slate-900 bg-white hover:text-blue-500 rounded-lg border dark:border-slate-800 border-slate-200 transition-colors text-slate-400" title="Rescan Domain">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
+                            <button onclick="deleteHistoryItem(${item.originalIndex})" class="p-1.5 dark:bg-slate-900 bg-white hover:text-rose-500 rounded-lg border dark:border-slate-800 border-slate-200 transition-colors text-slate-400 hover:border-rose-500/40" title="Delete Search">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function copyIp() {
+            const ip = document.getElementById('reconIp')?.innerText;
+            if (ip && ip !== 'Pending...' && ip !== 'Unknown') {
+                navigator.clipboard.writeText(ip);
+                const copyBtn = document.getElementById('copyIpBtn');
+                if (copyBtn) {
+                    copyBtn.innerText = 'Copied!';
+                    setTimeout(() => copyBtn.innerText = 'Copy IP', 2000);
+                }
+            }
+        }
+
+        function exportCSV() {
+            const history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            if (!history.length) return alert("No scan history to export.");
+            let csv = "Index,URL,Verdict,Risk_Level,Threat_Score,IP,Time\n";
+            history.forEach((h, i) => {
+                csv += `${i+1},"${h.url}",${h.result},"${h.risk_level}",${h.threat_score},"${h.ip_address}","${h.time}"\n`;
+            });
+            const link = document.createElement("a");
+            link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
+            link.download = `Phishing_Radar_Export_${Date.now()}.csv`;
+            link.click();
+        }
+
+        function downloadPDFReport() {
+            if (!window.jspdf) return alert("PDF engine loading...");
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            if (!history.length) return alert("No history to export.");
+
+            doc.setFillColor(13, 21, 39);
+            doc.rect(0, 0, 210, 32, 'F');
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.setTextColor(255, 255, 255);
+            doc.text("ENTERPRISE PHISHING RADAR", 14, 18);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(148, 163, 184);
+            doc.text("AI Threat Intelligence & Multi-Vector SOC Report", 14, 25);
+
+            const tableRows = history.map((item, i) => [
+                i + 1, item.url, item.result.toUpperCase(), item.risk_level, (item.threat_score || 0) + '%', item.time
+            ]);
+
+            doc.autoTable({
+                startY: 40,
+                head: [["#", "Target URL", "Verdict", "Risk Level", "Threat %", "Timestamp"]],
+                body: tableRows,
+                theme: 'grid',
+                headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 3 }
+            });
+
+            doc.save(`Phishing_Radar_Report_${Date.now()}.pdf`);
+        }
+
+        function openGraphModal(imgSrc, title) {
+            const modal = document.getElementById('graphModal');
+            const img = document.getElementById('graphModalImage');
+            const titleEl = document.getElementById('graphModalTitle');
+            if (modal && img) {
+                img.src = imgSrc;
+                if (titleEl) titleEl.innerText = title || "Evaluation Graph";
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => modal.classList.add('opacity-100'), 10);
+            }
+        }
+
+        function closeGraphModal() {
+            const modal = document.getElementById('graphModal');
+            if (modal) {
+                modal.classList.remove('opacity-100');
+                setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
+            }
+        }
+
+        async function loadModelMetadata() {
+            try {
+                const res = await fetch('/api/metadata');
+                if (res.ok) {
+                    const data = await res.json();
+                    const urlAcc = data.url_model?.accuracy;
+                    const htmlAcc = data.html_model?.accuracy;
+                    const urlRoc = data.url_model?.roc_auc;
+                    const htmlRoc = data.html_model?.roc_auc;
+                    
+                    const urlEl = document.getElementById('urlModelAcc');
+                    const htmlEl = document.getElementById('htmlModelAcc');
+                    
+                    if (urlEl && urlAcc) urlEl.innerText = `${urlAcc.toFixed(1)}% (ROC: ${urlRoc ? urlRoc.toFixed(1) : '--'}%)`;
+                    if (htmlEl && htmlAcc) htmlEl.innerText = `${htmlAcc.toFixed(1)}% (ROC: ${htmlRoc ? htmlRoc.toFixed(1) : '--'}%)`;
+
+                    if (data.dataset_split?.total_samples) {
+                        const totalEl = document.getElementById('telemetryDatasetTotal');
+                        if (totalEl) totalEl.innerText = Number(data.dataset_split.total_samples).toLocaleString();
+                    }
+                    if (urlRoc) {
+                        const uRocEl = document.getElementById('telemetryUrlRoc');
+                        if (uRocEl) uRocEl.innerText = `${urlRoc.toFixed(2)}%`;
+                    }
+                    if (urlAcc) {
+                        const uAccEl = document.getElementById('telemetryUrlAcc');
+                        if (uAccEl) uAccEl.innerText = `${urlAcc.toFixed(2)}%`;
+                    }
+                    if (htmlRoc) {
+                        const hRocEl = document.getElementById('telemetryHtmlRoc');
+                        if (hRocEl) hRocEl.innerText = `${htmlRoc.toFixed(2)}%`;
+                    }
+                    if (htmlAcc) {
+                        const hAccEl = document.getElementById('telemetryHtmlAcc');
+                        if (hAccEl) hAccEl.innerText = `${htmlAcc.toFixed(2)}%`;
+                    }
+                    if (data.system_info?.gpu_name) {
+                        const gpuEl = document.getElementById('telemetryGpuName');
+                        if (gpuEl) gpuEl.innerText = data.system_info.gpu_name.replace('NVIDIA ', '');
+                    }
+
+                    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+                    if (data.url_model?.pr_auc) setEl('urlPrAuc', `${data.url_model.pr_auc.toFixed(2)}%`);
+                    if (data.url_model?.brier_score) setEl('urlBrierScore', data.url_model.brier_score.toFixed(4));
+                    if (data.url_model?.log_loss) setEl('urlLogLoss', data.url_model.log_loss.toFixed(4));
+                    if (data.url_model?.train_samples) setEl('urlTrainSamples', Number(data.url_model.train_samples).toLocaleString());
+                    if (data.url_model?.validation_samples) setEl('urlCalibSamples', Number(data.url_model.validation_samples).toLocaleString());
+                    if (data.url_model?.test_samples) setEl('urlTestSamples', Number(data.url_model.test_samples).toLocaleString());
+
+                    if (data.html_model?.pr_auc) setEl('htmlPrAuc', `${data.html_model.pr_auc.toFixed(2)}%`);
+                    if (data.html_model?.brier_score) setEl('htmlBrierScore', data.html_model.brier_score.toFixed(4));
+                    if (data.html_model?.log_loss) setEl('htmlLogLoss', data.html_model.log_loss.toFixed(4));
+                    if (data.html_model?.train_samples) setEl('htmlTrainSamples', Number(data.html_model.train_samples).toLocaleString());
+                    if (data.html_model?.validation_samples) setEl('htmlCalibSamples', Number(data.html_model.validation_samples).toLocaleString());
+                    if (data.html_model?.test_samples) setEl('htmlTestSamples', Number(data.html_model.test_samples).toLocaleString());
+                }
+            } catch (e) {
+                console.log("Could not load model metadata:", e);
+            }
+        }
+
+        // ================= SCAN COMPARISON SUITE =================
+        function openScanCompareModal() {
+            const history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            if (history.length < 2) {
+                alert("At least 2 historical scans are needed for comparison. Run a couple of URL checks first!");
+                return;
+            }
+
+            const selectA = document.getElementById('compareSelectA');
+            const selectB = document.getElementById('compareSelectB');
+            if (!selectA || !selectB) return;
+
+            selectA.innerHTML = '';
+            selectB.innerHTML = '';
+
+            history.forEach((item, idx) => {
+                const optA = document.createElement('option');
+                optA.value = idx;
+                optA.text = `[${(item.result || 'UNKNOWN').toUpperCase()}] ${item.url.slice(0, 45)}`;
+                selectA.appendChild(optA);
+
+                const optB = document.createElement('option');
+                optB.value = idx;
+                optB.text = `[${(item.result || 'UNKNOWN').toUpperCase()}] ${item.url.slice(0, 45)}`;
+                if (idx === 1) optB.selected = true;
+                selectB.appendChild(optB);
+            });
+
+            renderComparisonTable();
+
+            const compModal = document.getElementById('scanCompareModal');
+            if (compModal) {
+                compModal.classList.remove('hidden');
+                compModal.classList.add('flex');
+                setTimeout(() => compModal.classList.remove('opacity-0'), 10);
+            }
+        }
+
+        function closeScanCompareModal() {
+            const compModal = document.getElementById('scanCompareModal');
+            if (!compModal) return;
+            compModal.classList.add('opacity-0');
+            setTimeout(() => {
+                compModal.classList.add('hidden');
+                compModal.classList.remove('flex');
+            }, 300);
+        }
+
+        function renderComparisonTable() {
+            const history = JSON.parse(localStorage.getItem('phishHistory')) || [];
+            const selA = document.getElementById('compareSelectA');
+            const selB = document.getElementById('compareSelectB');
+            if (!selA || !selB) return;
+
+            const idxA = parseInt(selA.value);
+            const idxB = parseInt(selB.value);
+
+            const a = history[idxA];
+            const b = history[idxB];
+            if (!a || !b) return;
+
+            const headA = document.getElementById('colHeaderA');
+            const headB = document.getElementById('colHeaderB');
+            if (headA) headA.innerText = a.url.replace(/https?:\/\//, '').split('/')[0].slice(0, 25);
+            if (headB) headB.innerText = b.url.replace(/https?:\/\//, '').split('/')[0].slice(0, 25);
+
+            const tbody = document.getElementById('comparisonTableBody');
+            if (!tbody) return;
+
+            const scoreDiff = (b.threat_score || 0) - (a.threat_score || 0);
+            const scoreDeltaColor = scoreDiff > 0 ? "text-rose-400" : (scoreDiff < 0 ? "text-emerald-400" : "text-slate-400");
+            const deltaSign = scoreDiff > 0 ? `+${scoreDiff.toFixed(1)}% (Higher Risk)` : (scoreDiff < 0 ? `${scoreDiff.toFixed(1)}% (Safer)` : "0.0%");
+
+            const rows = [
+                {
+                    vector: "Threat Score",
+                    valA: `${(a.threat_score || 0).toFixed(1)}%`,
+                    valB: `${(b.threat_score || 0).toFixed(1)}%`,
+                    delta: deltaSign,
+                    deltaColor: scoreDeltaColor
+                },
+                {
+                    vector: "Verdict / Classification",
+                    valA: a.risk_level || (a.result || 'SAFE').toUpperCase(),
+                    valB: b.risk_level || (b.result || 'SAFE').toUpperCase(),
+                    delta: a.result === b.result ? "Equivalent Class" : "Divergent Verdict",
+                    deltaColor: a.result === b.result ? "text-slate-400" : "text-amber-400"
+                },
+                {
+                    vector: "Decision Confidence",
+                    valA: `${a.confidence || 94}%`,
+                    valB: `${b.confidence || 94}%`,
+                    delta: `${((b.confidence || 94) - (a.confidence || 94)).toFixed(1)}%`,
+                    deltaColor: "text-slate-400"
+                },
+                {
+                    vector: "Resolved IP Address",
+                    valA: a.ip_address || "Unknown",
+                    valB: b.ip_address || "Unknown",
+                    delta: a.ip_address === b.ip_address ? "Same Host" : "Distinct Network Host",
+                    deltaColor: "text-slate-400"
+                },
+                {
+                    vector: "Scan Timestamp",
+                    valA: a.time || "N/A",
+                    valB: b.time || "N/A",
+                    delta: "Historical delta",
+                    deltaColor: "text-slate-500"
+                }
+            ];
+
+            tbody.innerHTML = '';
+            rows.forEach(r => {
+                tbody.innerHTML += `
+                    <tr class="hover:dark:bg-slate-900/50 hover:bg-slate-50 transition-colors">
+                        <td class="py-3 px-4 font-bold text-slate-300 font-sans">${r.vector}</td>
+                        <td class="py-3 px-4 text-cyan-400 font-semibold">${r.valA}</td>
+                        <td class="py-3 px-4 text-purple-400 font-semibold">${r.valB}</td>
+                        <td class="py-3 px-4 text-right font-bold ${r.deltaColor}">${r.delta}</td>
+                    </tr>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>

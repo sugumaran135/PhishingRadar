@@ -1,0 +1,62 @@
+[
+  {
+    "feature": "NoOfSelfRef",
+    "gain": 56.537513732910156,
+    "weight": 867.0,
+    "cover": 135.4571990966797
+  },
+  {
+    "feature": "NoOfImage",
+    "gain": 11.662418365478516,
+    "weight": 1041.0,
+    "cover": 84.06771850585938
+  },
+  {
+    "feature": "HasPasswordField",
+    "gain": 5.4058051109313965,
+    "weight": 247.0,
+    "cover": 84.80368041992188
+  },
+  {
+    "feature": "NoOfExternalRef",
+    "gain": 4.583703517913818,
+    "weight": 1024.0,
+    "cover": 86.82772064208984
+  },
+  {
+    "feature": "LineOfCode",
+    "gain": 2.924450635910034,
+    "weight": 1654.0,
+    "cover": 75.2663345336914
+  },
+  {
+    "feature": "ExternalRefRatio",
+    "gain": 1.4410781860351562,
+    "weight": 1160.0,
+    "cover": 53.93733596801758
+  },
+  {
+    "feature": "NoOfiFrame",
+    "gain": 1.36642587184906,
+    "weight": 326.0,
+    "cover": 49.69423294067383
+  },
+  {
+    "feature": "HasTitle",
+    "gain": 1.2341644763946533,
+    "weight": 50.0,
+    "cover": 253.64126586914062
+  },
+  {
+    "feature": "NoOfCSS",
+    "gain": 1.2290867567062378,
+    "weight": 765.0,
+    "cover": 50.178462982177734
+  },
+  {
+    "feature": "NoOfJS",
+    "gain": 1.1447232961654663,
+    "weight": 949.0,
+    "cover": 57.66604232788086
+  }
+]

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing Radar</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="extension-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="brand">
+                <div class="logo-box">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span class="pulse-dot"></span>
+                </div>
+                <div>
+                    <h1 class="title">Phishing Radar</h1>
+                    <span class="subtitle">AI Threat Intelligence</span>
+                </div>
+            </div>
+            <div class="server-status" id="serverStatusBadge" title="Backend Connection Status">
+                <span class="status-indicator"></span>
+                <span id="serverStatusText">Checking...</span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="tab-active-page">Active Tab</button>
+            <button class="tab-btn" data-tab="tab-custom-url">Custom URL</button>
+            <button class="tab-btn" data-tab="tab-email-scan">Email</button>
+            <button class="tab-btn" data-tab="tab-settings">Settings</button>
+        </nav>
+
+        <!-- TAB 1: Active Tab Scanner -->
+        <div id="tab-active-page" class="tab-pane active">
+            <div class="current-url-card">
+                <span class="section-label">Target Page</span>
+                <div class="url-display" id="activeUrlText" title="Current tab URL">Detecting active tab...</div>
+                <button class="btn btn-primary" id="btnScanActiveTab">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <span>Analyze Current Page</span>
+                </button>
+            </div>
+
+            <!-- Scan Results Container -->
+            <div id="urlResultsContainer" class="results-container hidden">
+                <!-- Score & Verdict Banner -->
+                <div class="verdict-card" id="verdictCard">
+                    <div class="score-circle" id="scoreCircle">
+                        <span class="score-value" id="threatScoreValue">0%</span>
+                        <span class="score-label">Threat</span>
+                    </div>
+                    <div class="verdict-info">
+                        <h2 class="verdict-title" id="verdictTitle">Analyzing...</h2>
+                        <span class="badge" id="riskBadge">LOW RISK</span>
+                        <div class="confidence-text">Confidence: <strong id="confidenceValue">--%</strong></div>
+                    </div>
+                </div>
+
+                <!-- LLM Threat Intelligence Summary -->
+                <div class="llm-briefing-card hidden" id="llmBriefingCard">
+                    <div class="llm-header">
+                        <span class="llm-dot"></span>
+                        <span>SOC Threat Briefing</span>
+                    </div>
+                    <p class="llm-text" id="llmBriefingText"></p>
+                </div>
+
+                <!-- Forensics Details -->
+                <div class="telemetry-grid">
+                    <div class="telemetry-item">
+                        <span class="item-label">IP Address</span>
+                        <span class="item-value font-mono" id="reconIp">--</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="item-label">Hosting ISP</span>
+                        <span class="item-value" id="reconIsp">--</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="item-label">Domain Age</span>
+                        <span class="item-value" id="reconAge">--</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="item-label">Scan Mode</span>
+                        <span class="item-value" id="scanModeText">--</span>
+                    </div>
+                </div>
+
+                <!-- Detected Risk Signals -->
+                <div class="signals-box hidden" id="signalsBox">
+                    <span class="section-label">Observed Indicators</span>
+                    <ul class="signals-list" id="signalsList"></ul>
+                </div>
+
+                <!-- Full Dashboard Button -->
+                <a href="http://localhost:5000" target="_blank" class="btn btn-outline" id="btnOpenDashboard">
+                    <span>Open Full SOC Dashboard</span>
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <!-- TAB 2: Custom URL Scanner -->
+        <div id="tab-custom-url" class="tab-pane">
+            <div class="input-group">
+                <label for="customUrlInput" class="section-label">Enter Target URL</label>
+                <div class="input-wrapper">
+                    <input type="text" id="customUrlInput" placeholder="https://example.com/login" class="text-input font-mono">
+                </div>
+                <button class="btn btn-primary" id="btnScanCustomUrl">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <span>Run AI URL Scan</span>
+                </button>
+            </div>
+            <div id="customResultsContainer" class="results-container hidden"></div>
+        </div>
+
+        <!-- TAB 3: Email Scanner -->
+        <div id="tab-email-scan" class="tab-pane">
+            <div class="input-group">
+                <label for="emailSenderInput" class="section-label">Sender Email / Header (Optional)</label>
+                <input type="text" id="emailSenderInput" placeholder="Security <alert@service.com>" class="text-input font-mono">
+                
+                <label for="emailBodyInput" class="section-label" style="margin-top: 8px;">Email Content / Message Body</label>
+                <textarea id="emailBodyInput" rows="4" placeholder="Paste the suspicious email text here..." class="textarea-input"></textarea>
+                
+                <button class="btn btn-primary" id="btnScanEmail">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <span>Run Email NLP Forensic Scan</span>
+                </button>
+            </div>
+            <div id="emailResultsContainer" class="results-container hidden"></div>
+        </div>
+
+        <!-- TAB 4: Settings -->
+        <div id="tab-settings" class="tab-pane">
+            <div class="settings-group">
+                <label for="apiUrlInput" class="section-label">Backend SOC API Server</label>
+                <input type="text" id="apiUrlInput" value="http://localhost:5000" class="text-input font-mono">
+                <p class="help-text">Point this to your local or hosted CheckPhish Flask server.</p>
+                <button class="btn btn-secondary" id="btnSaveSettings">Save & Test Connection</button>
+            </div>
+            <div class="version-info">
+                <span>CheckPhish SOC Engine v4.0.0</span>
+                <span>Decoupled Multi-Vector AI Active</span>
+            </div>
+        </div>
+
+        <!-- Global Loader Overlay -->
+        <div id="loaderOverlay" class="loader-overlay hidden">
+            <div class="spinner"></div>
+            <span class="loader-text" id="loaderText">Analyzing Multi-Vector Telemetry...</span>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

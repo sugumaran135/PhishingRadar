@@ -1,0 +1,54 @@
+# ==========================================
+# API Keys, Secrets & Environment Variables
+# ==========================================
+.env
+.env.*
+*.env
+*.key
+*api_key*
+secrets.json
+credentials.json
+token.json
+
+# ==========================================
+# Python Bytecode & Cache
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# ==========================================
+# Virtual Environments
+# ==========================================
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ==========================================
+# IDEs & Operating System Artifacts
+# ==========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# Logs & Temporary Files
+# ==========================================
+*.log
+scratch/
+tmp/
+*.tmp
+
+# ==========================================
+# Datasets & Large Data Files
+# ==========================================
+data/Email_dataset/
+Email_dataset/

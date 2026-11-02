@@ -1,0 +1,116 @@
+[
+  {
+    "feature": "HostnameHasDigit",
+    "gain": 553.1746215820312,
+    "weight": 321.0,
+    "cover": 2453.440673828125
+  },
+  {
+    "feature": "IsHTTPS",
+    "gain": 279.23248291015625,
+    "weight": 718.0,
+    "cover": 1714.2471923828125
+  },
+  {
+    "feature": "PathHasSuspiciousKeyword",
+    "gain": 216.7515411376953,
+    "weight": 117.0,
+    "cover": 4624.18017578125
+  },
+  {
+    "feature": "NoOfQMarkInURL",
+    "gain": 145.99813842773438,
+    "weight": 69.0,
+    "cover": 8596.69140625
+  },
+  {
+    "feature": "HasAtSymbol",
+    "gain": 137.16140747070312,
+    "weight": 45.0,
+    "cover": 9357.09765625
+  },
+  {
+    "feature": "DotCount",
+    "gain": 120.36846923828125,
+    "weight": 718.0,
+    "cover": 2186.477783203125
+  },
+  {
+    "feature": "HostnameHasHyphen",
+    "gain": 111.99960327148438,
+    "weight": 252.0,
+    "cover": 1967.6239013671875
+  },
+  {
+    "feature": "PathDepth",
+    "gain": 93.44522857666016,
+    "weight": 849.0,
+    "cover": 1870.502197265625
+  },
+  {
+    "feature": "PathLength",
+    "gain": 74.48613739013672,
+    "weight": 1730.0,
+    "cover": 2055.310302734375
+  },
+  {
+    "feature": "NoOfSubDomain",
+    "gain": 70.0694351196289,
+    "weight": 784.0,
+    "cover": 1539.7838134765625
+  },
+  {
+    "feature": "DigitCount",
+    "gain": 65.35380554199219,
+    "weight": 692.0,
+    "cover": 1302.1331787109375
+  },
+  {
+    "feature": "DomainLength",
+    "gain": 56.98740768432617,
+    "weight": 1781.0,
+    "cover": 1545.9078369140625
+  },
+  {
+    "feature": "URLLength",
+    "gain": 52.657596588134766,
+    "weight": 1764.0,
+    "cover": 1645.3902587890625
+  },
+  {
+    "feature": "HasQuery",
+    "gain": 30.605621337890625,
+    "weight": 7.0,
+    "cover": 9156.2060546875
+  },
+  {
+    "feature": "HyphenCount",
+    "gain": 22.74329948425293,
+    "weight": 575.0,
+    "cover": 737.9679565429688
+  },
+  {
+    "feature": "DigitRatio",
+    "gain": 21.90777587890625,
+    "weight": 606.0,
+    "cover": 1191.859375
+  },
+  {
+    "feature": "DoubleSlashInPath",
+    "gain": 12.109084129333496,
+    "weight": 31.0,
+    "cover": 9598.06640625
+  },
+  {
+    "feature": "NoOfAmpersandInURL",
+    "gain": 3.001284122467041,
+    "weight": 1.0,
+    "cover": 8796.4765625
+  },
+  {
+    "feature": "IsIPAddress",
+    "gain": 1.7336971759796143,
+    "weight": 5.0,
+    "cover": 7.8711395263671875
+  }
+]

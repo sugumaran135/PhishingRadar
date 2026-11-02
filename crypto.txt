@@ -1,0 +1,69 @@
+Main Title: Spotting Fake Websites: Analyzing Links and Page Content
+
+Subtitle: A Complete Machine Learning Tool for Web Security
+
+Team Info: * Project Lead: Sugumaran S
+
+Team Members: Yogesh C, Sridharan S S
+
+
+
+Slide 2: The Problem We Are Solving
+
+The Threat: Fake websites are constantly changing to trick users into sharing passwords, causing major financial and data losses worldwide.
+
+The Weakness of Old Tools: Basic security scanners that only look at the web address (URL) often miss new scams and clever hiding tricks.
+
+Our Challenge: We need to build a strong, two-part system that mathematically checks the website link and scans the actual page content to catch what others miss.
+
+
+
+Slide 3: Project Objectives
+
+Two-Part Detection Engine: Build a system that checks both the website link (looking for red flags like extra hyphens or '@' symbols) and reads the live page code.
+
+High-Speed AI Model: Use a powerful machine learning model (XGBoost) trained on a massive dataset of real and fake sites to catch hidden threats.
+
+Live User Dashboard: Create an easy-to-use web app that gives sites a safety score, clearly explains why a site was flagged, and includes a list of trusted websites.
+
+
+
+Slide 4: Literature Review - Flaws of Older Systems
+
+The Blacklist Problem: Relying on databases of known bad websites is too slow. It completely misses brand-new fake sites that hackers create and abandon within 24 hours.
+
+Just Checking Links Fails: Older AI models only looked at the web address (URL length, special characters). These fail when attackers hide behind link shorteners or host fake pages on trusted cloud services.
+
+
+
+Slide 5: How We Analyze Page Content
+
+Checking the Live Code: We look past the web address and analyze the live website structure (the DOM) to find the truth.
+
+Deep vs. Shallow Sites: Real websites are complex with many links and styling files. Fake sites are built "shallow" just to steal data quickly.
+
+Real-Time Web Scraping: Using Python tools like BeautifulSoup, we extract the actual page content instantly to spot these superficial scams.
+
+
+
+Slide 6: Literature Review - Algorithm Selection
+
+Algorithm Accuracy Comparison:
+
+XGBoost (Selected): 96.85%
+
+Random Forest: 93.0%
+
+Support Vector Machine (SVM): 89.0%
+
+Logistic Regression: 82.0% The Winning Features: We selected XGBoost because it handles our data perfectly, processes information at high speeds (using GPU acceleration), and easily explains which red flags triggered the warning.
+
+
+
+Slide 7: Proposed Solution & Dashboard
+
+Full-Stack Web App: A smooth, easy-to-use Flask application built for real-time protection.
+
+Smart Data Gathering: Uses a hybrid scraper to pull live website code and feeds it to our AI, while safely skipping known trusted sites (Enterprise Whitelist).
+
+Clear User Results: The dashboard instantly displays a Confidence Score, past scan history, and an Explainable AI Report that tells users exactly why a site is dangerous.

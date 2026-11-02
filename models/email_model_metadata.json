@@ -1,0 +1,120 @@
+{
+  "training_timestamp": "2026-08-30 09:06:09",
+  "hardware": {
+    "training_device": "GPU (CUDA)",
+    "gpu_name": "NVIDIA GeForce RTX 3050 6GB Laptop GPU"
+  },
+  "dataset_breakdown": {
+    "files_used": [
+      "CEAS_08.csv",
+      "Enron.csv",
+      "Ling.csv",
+      "Nazario.csv",
+      "Nigerian_Fraud.csv",
+      "SpamAssasin.csv",
+      "legit_security_notices_synthetic.csv",
+      "augmented_robustness_corpus.csv"
+    ],
+    "file_stats": [
+      {
+        "file": "CEAS_08.csv",
+        "rows": 39154,
+        "phishing_or_spam": 21842,
+        "legitimate_ham": 17312
+      },
+      {
+        "file": "Enron.csv",
+        "rows": 29767,
+        "phishing_or_spam": 13976,
+        "legitimate_ham": 15791
+      },
+      {
+        "file": "Ling.csv",
+        "rows": 2859,
+        "phishing_or_spam": 458,
+        "legitimate_ham": 2401
+      },
+      {
+        "file": "Nazario.csv",
+        "rows": 1565,
+        "phishing_or_spam": 1565,
+        "legitimate_ham": 0
+      },
+      {
+        "file": "Nigerian_Fraud.csv",
+        "rows": 3332,
+        "phishing_or_spam": 3332,
+        "legitimate_ham": 0
+      },
+      {
+        "file": "SpamAssasin.csv",
+        "rows": 5809,
+        "phishing_or_spam": 1718,
+        "legitimate_ham": 4091
+      },
+      {
+        "file": "legit_security_notices_synthetic.csv",
+        "rows": 1413,
+        "phishing_or_spam": 0,
+        "legitimate_ham": 1413
+      },
+      {
+        "file": "augmented_robustness_corpus.csv",
+        "rows": 9647,
+        "phishing_or_spam": 560,
+        "legitimate_ham": 9087
+      }
+    ],
+    "total_raw_rows": 93546,
+    "duplicates_removed": 5593,
+    "clean_unique_emails": 87953,
+    "train_samples_70pct": 61478,
+    "calib_samples_10pct": 8766,
+    "test_samples_20pct": 17709,
+    "class_distribution": {
+      "phishing_1": 42648,
+      "legitimate_0": 45305
+    }
+  },
+  "model_architecture": {
+    "vectorizer": "TfidfVectorizer(ngram_range=(1,2), sublinear_tf=True, min_df=2)",
+    "vocab_size": 60000,
+    "classifier": "LogisticRegression(C=1.5, class_weight=balanced, L2 regularization)",
+    "calibration_method": "Isotonic Regression",
+    "operational_thresholds": {
+      "safe_below": 0.3,
+      "suspicious_range": [
+        0.3,
+        0.6
+      ],
+      "phishing_above": 0.6
+    }
+  },
+  "calibration_selection_metrics": {
+    "uncalibrated_brier": 0.0122,
+    "sigmoid_platt_brier": 0.0093,
+    "isotonic_brier": 0.0088,
+    "chosen_method": "Isotonic Regression"
+  },
+  "unseen_test_metrics": {
+    "roc_auc": 0.9987,
+    "pr_auc": 0.9985,
+    "accuracy": 0.9844,
+    "balanced_accuracy": 0.9843,
+    "precision": 0.9863,
+    "recall": 0.9815,
+    "f1_score": 0.9839,
+    "brier_score_loss": 0.0115,
+    "log_loss": 0.0449,
+    "expected_calibration_error_ece": 0.0028,
+    "false_positive_rate": 0.0129,
+    "false_negative_rate": 0.0185,
+    "confusion_matrix": {
+      "tn": 8981,
+      "fp": 117,
+      "fn": 159,
+      "tp": 8452
+    }
+  },
+  "training_time_seconds": 52.38
+}
